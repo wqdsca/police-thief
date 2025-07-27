@@ -8,6 +8,7 @@ class roomListService extends BaseService {
     }
 
     async createRoom(data) {
+        console.log("createRoom 방만들기 로직 실행, data = ", data);
         const room = await this.redisService.createRoom(data);
         if(!room.success) {
             throw new Error(room.message);

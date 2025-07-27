@@ -21,7 +21,6 @@ class RedisRoomListService {
             'hostNickName', nickName,
             'roomName', roomName,
             'createdAt', now,
-            'currentUserNum', 1,
             'maxUserNum', maxUserNum
           ],
         },
@@ -69,7 +68,7 @@ class RedisRoomListService {
     const roomListHash = hashHelper((id) => getKey.roomInfo(id));
   
     let max = '+inf';
-    console.log('laastroomidㄱ  ', lastRoomId);
+    console.log('laastroomid  ', lastRoomId);
     if (lastRoomId && Number(lastRoomId) > 0) {
       const score = await roomListSet.score(lastRoomId);
       if (score !== null && !isNaN(score)) {

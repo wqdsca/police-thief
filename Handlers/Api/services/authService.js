@@ -19,6 +19,8 @@ class AuthService extends BaseService {
             tokenService.generateAccessToken(id),
             tokenService.generateRefreshToken(id),
           ]);
+          console.log("로그인 성공"
+          );
         return {id: 1, nickname: 'test', isRegister: true, accessToken, refreshToken};
     }
     const userId = await this.getSocialUserId(loginType, token);
