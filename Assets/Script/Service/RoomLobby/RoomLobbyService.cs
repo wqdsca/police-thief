@@ -19,7 +19,7 @@ public static class RoomLobbyService {
           
         }
     }
-    public static void GetRoomList(List<RoomLobbyResponseModel> roomList) {
+    public static async UniTask GetRoomList(List<RoomLobbyResponseModel> roomList) {
         try {
             if(roomList.Count == 0) {
                 Debug.Log("❌ 방 목록 조회 에러: 방 목록이 없습니다.");

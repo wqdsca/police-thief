@@ -107,11 +107,11 @@ public static class RoomList {
     public static void UpdateRoom(RoomLobbyResponseModel room) {
         rooms[room.roomId] = room;
     }
-
-    public static void ClearRoom() {
+    public static async UniTask ClearRoom() {
         rooms.Clear();
     }
 
+   
     public static RoomLobbyResponseModel GetRoom(int roomId) {
         if (rooms.TryGetValue(roomId, out var room)) return room;
         Debug.LogWarning($"Room {roomId} not found.");

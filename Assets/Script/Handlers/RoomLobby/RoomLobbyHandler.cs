@@ -4,6 +4,7 @@ using System;
 using Model.Auth;
 using Model.RoomLobby;
 using System.Collections.Generic;
+using System.Linq;
 
 public static class RoomHandler {
     public static async UniTask CreateRoom(string roomName, int maxUserNum) {
@@ -23,13 +24,15 @@ public static class RoomHandler {
         }
     }
 
-    public static async UniTask getRoomList() {
-            int lastRoomId = 0;
+    public static async UniTask<bool> getRoomList(int lastRoomId) {
         try {
-            var response = await ApiService.Instance.Request<List<RoomLobbyResponseModel>>("GET", "/roomList/getList", lastRoomId, false);
-            RoomLobbyService.GetRoomList(response);
+            // var response = await ApiService.Instance.Request<List<RoomLobbyResponseModel>>("GET", "/roomList/getList", lastRoomId, false); // 추후 api 연동을 바꿈
+            var response = TestRoomList.roomList.Where(room => room.roomId > lastRoomId).ToList();
+           await RoomLobbyService.GetRoomList(response);
+           return true;
         } catch (Exception ex) {
             Debug.LogError("방 목록 조회 에러: " + ex.Message);
+            return false;
         }
     }
 }
