@@ -1,8 +1,35 @@
 // set_helper.rs
-use redis::AsyncCommands;
+use redis::{AsyncCommands, Pipeline};
+use serde_json;
 
-use crate::Share::Comman::error::{AppError, AppResult};
-use crate::Share::Service::Redis::core::RedisConnection;
+use crate::share::comman::error::{AppError, AppResult};
+use crate::share::service::redis::core::RedisConnection;
+
+/// Set 대량 연산을 위한 Lua 스크립트
+const SET_BATCH_OPERATIONS_LUA: &str = r#"
+local key = KEYS[1]
+local ttl = tonumber(ARGV[1])
+local operation = ARGV[2]
+local members = cjson.decode(ARGV[3])
+
+local result = 0
+
+if operation == "add" then
+  for _, member in ipairs(members) do
+    result = result + redis.call('SADD', key, member)
+  end
+elseif operation == "remove" then
+  for _, member in ipairs(members) do
+    result = result + redis.call('SREM', key, member)
+  end
+end
+
+if ttl > 0 then
+  redis.call('EXPIRE', key, ttl)
+end
+
+return result
+"#;
 
 /// Set 데이터 타입을 위한 헬퍼
 #[derive(Clone)]
@@ -18,7 +45,7 @@ impl SetHelper {
     }
 
     /// SADD key member
-    pub async fn addMember(&self, member: &str) -> AppResult<i64> {
+    pub async fn add_member(&self, member: &str) -> AppResult<i64> {
         let mut conn = self.conn.clone();
         let n: i64 = redis::cmd("SADD").arg(&self.key).arg(member).query_async(&mut conn).await
             .map_err(|e| AppError::redis(e.to_string(), Some("SADD")))?;
@@ -29,15 +56,15 @@ impl SetHelper {
         Ok(n)
     }
 
-    /// SADD key member1 member2 member3...
-    pub async fn addMultipleMembers(&self, members: &[&str]) -> AppResult<i64> {
+    /// SADD key member1 member2 member3... - Pipeline 사용
+    pub async fn add_multiple_members(&self, members: &[&str]) -> AppResult<i64> {
         let mut conn = self.conn.clone();
-        let mut cmd = redis::cmd("SADD");
-        cmd.arg(&self.key);
+        let mut pipe = redis::pipe();
+        pipe.cmd("SADD").arg(&self.key);
         for member in members {
-            cmd.arg(member);
+            pipe.arg(member);
         }
-        let n: i64 = cmd.query_async(&mut conn).await
+        let n: i64 = pipe.query_async(&mut conn).await
             .map_err(|e| AppError::redis(e.to_string(), Some("SADD_MULTIPLE")))?;
         if let Some(sec) = self.ttl { 
             let _: bool = conn.expire(&self.key, sec as usize).await
@@ -46,16 +73,56 @@ impl SetHelper {
         Ok(n)
     }
 
+    /// 대량 멤버 추가 - Lua 스크립트 사용
+    pub async fn batch_add_members(&self, members: &[String]) -> AppResult<i64> {
+        let mut conn = self.conn.clone();
+        let script = redis::Script::new(SET_BATCH_OPERATIONS_LUA);
+        let members_json = serde_json::to_string(members)
+            .map_err(|e| AppError::serialization(e.to_string(), Some("JSON")))?;
+        let ttl = self.ttl.unwrap_or(0) as i64;
+        
+        let result: i64 = script
+            .key(&self.key)
+            .arg(ttl)
+            .arg("add")
+            .arg(members_json)
+            .invoke_async(&mut conn)
+            .await
+            .map_err(|e| AppError::redis(e.to_string(), Some("LUA_BATCH_ADD")))?;
+        
+        Ok(result)
+    }
+
     /// SREM key member
-    pub async fn removeMember(&self, member: &str) -> AppResult<i64> {
+    pub async fn remove_member(&self, member: &str) -> AppResult<i64> {
         let mut conn = self.conn.clone();
         let n: i64 = redis::cmd("SREM").arg(&self.key).arg(member).query_async(&mut conn).await
             .map_err(|e| AppError::redis(e.to_string(), Some("SREM")))?;
         Ok(n)
     }
 
+    /// 대량 멤버 제거 - Lua 스크립트 사용
+    pub async fn batch_remove_members(&self, members: &[String]) -> AppResult<i64> {
+        let mut conn = self.conn.clone();
+        let script = redis::Script::new(SET_BATCH_OPERATIONS_LUA);
+        let members_json = serde_json::to_string(members)
+            .map_err(|e| AppError::serialization(e.to_string(), Some("JSON")))?;
+        let ttl = self.ttl.unwrap_or(0) as i64;
+        
+        let result: i64 = script
+            .key(&self.key)
+            .arg(ttl)
+            .arg("remove")
+            .arg(members_json)
+            .invoke_async(&mut conn)
+            .await
+            .map_err(|e| AppError::redis(e.to_string(), Some("LUA_BATCH_REMOVE")))?;
+        
+        Ok(result)
+    }
+
     /// SISMEMBER key member
-    pub async fn memberExists(&self, member: &str) -> AppResult<bool> {
+    pub async fn member_exists(&self, member: &str) -> AppResult<bool> {
         let mut conn = self.conn.clone();
         let exists: i64 = redis::cmd("SISMEMBER").arg(&self.key).arg(member).query_async(&mut conn).await
             .map_err(|e| AppError::redis(e.to_string(), Some("SISMEMBER")))?;
@@ -63,7 +130,7 @@ impl SetHelper {
     }
 
     /// SMEMBERS key
-    pub async fn getAllMembers(&self) -> AppResult<Vec<String>> {
+    pub async fn get_all_members(&self) -> AppResult<Vec<String>> {
         let mut conn = self.conn.clone();
         let members: Vec<String> = redis::cmd("SMEMBERS").arg(&self.key).query_async(&mut conn).await
             .map_err(|e| AppError::redis(e.to_string(), Some("SMEMBERS")))?;
@@ -71,7 +138,7 @@ impl SetHelper {
     }
 
     /// SCARD key
-    pub async fn getMemberCount(&self) -> AppResult<usize> {
+    pub async fn get_member_count(&self) -> AppResult<usize> {
         let mut conn = self.conn.clone();
         let count: i64 = redis::cmd("SCARD").arg(&self.key).query_async(&mut conn).await
             .map_err(|e| AppError::redis(e.to_string(), Some("SCARD")))?;
@@ -79,7 +146,7 @@ impl SetHelper {
     }
 
     /// SPOP key [count]
-    pub async fn popRandomMember(&self) -> AppResult<Option<String>> {
+    pub async fn pop_random_member(&self) -> AppResult<Option<String>> {
         let mut conn = self.conn.clone();
         let member: Option<String> = redis::cmd("SPOP").arg(&self.key).query_async(&mut conn).await
             .map_err(|e| AppError::redis(e.to_string(), Some("SPOP")))?;
@@ -87,7 +154,7 @@ impl SetHelper {
     }
 
     /// SPOP key count
-    pub async fn popRandomMembers(&self, count: usize) -> AppResult<Vec<String>> {
+    pub async fn pop_random_members(&self, count: usize) -> AppResult<Vec<String>> {
         let mut conn = self.conn.clone();
         let members: Vec<String> = redis::cmd("SPOP").arg(&self.key).arg(count).query_async(&mut conn).await
             .map_err(|e| AppError::redis(e.to_string(), Some("SPOP_MULTIPLE")))?;
@@ -95,7 +162,7 @@ impl SetHelper {
     }
 
     /// SRANDMEMBER key [count]
-    pub async fn getRandomMember(&self) -> AppResult<Option<String>> {
+    pub async fn get_random_member(&self) -> AppResult<Option<String>> {
         let mut conn = self.conn.clone();
         let member: Option<String> = redis::cmd("SRANDMEMBER").arg(&self.key).query_async(&mut conn).await
             .map_err(|e| AppError::redis(e.to_string(), Some("SRANDMEMBER")))?;
@@ -103,7 +170,7 @@ impl SetHelper {
     }
 
     /// SRANDMEMBER key count
-    pub async fn getRandomMembers(&self, count: usize) -> AppResult<Vec<String>> {
+    pub async fn get_random_members(&self, count: usize) -> AppResult<Vec<String>> {
         let mut conn = self.conn.clone();
         let members: Vec<String> = redis::cmd("SRANDMEMBER").arg(&self.key).arg(count).query_async(&mut conn).await
             .map_err(|e| AppError::redis(e.to_string(), Some("SRANDMEMBER_MULTIPLE")))?;
@@ -111,46 +178,46 @@ impl SetHelper {
     }
 
     /// SUNION key1 key2 key3...
-    pub async fn getUnion(&self, other_keys: &[&str]) -> AppResult<Vec<String>> {
+    pub async fn get_union(&self, other_keys: &[&str]) -> AppResult<Vec<String>> {
         let mut conn = self.conn.clone();
-        let mut cmd = redis::cmd("SUNION");
-        cmd.arg(&self.key);
+        let mut pipe = redis::pipe();
+        pipe.cmd("SUNION").arg(&self.key);
         for key in other_keys {
-            cmd.arg(key);
+            pipe.arg(key);
         }
-        let members: Vec<String> = cmd.query_async(&mut conn).await
+        let members: Vec<String> = pipe.query_async(&mut conn).await
             .map_err(|e| AppError::redis(e.to_string(), Some("SUNION")))?;
         Ok(members)
     }
 
     /// SINTER key1 key2 key3...
-    pub async fn getIntersection(&self, other_keys: &[&str]) -> AppResult<Vec<String>> {
+    pub async fn get_intersection(&self, other_keys: &[&str]) -> AppResult<Vec<String>> {
         let mut conn = self.conn.clone();
-        let mut cmd = redis::cmd("SINTER");
-        cmd.arg(&self.key);
+        let mut pipe = redis::pipe();
+        pipe.cmd("SINTER").arg(&self.key);
         for key in other_keys {
-            cmd.arg(key);
+            pipe.arg(key);
         }
-        let members: Vec<String> = cmd.query_async(&mut conn).await
+        let members: Vec<String> = pipe.query_async(&mut conn).await
             .map_err(|e| AppError::redis(e.to_string(), Some("SINTER")))?;
         Ok(members)
     }
 
     /// SDIFF key1 key2 key3...
-    pub async fn getDifference(&self, other_keys: &[&str]) -> AppResult<Vec<String>> {
+    pub async fn get_difference(&self, other_keys: &[&str]) -> AppResult<Vec<String>> {
         let mut conn = self.conn.clone();
-        let mut cmd = redis::cmd("SDIFF");
-        cmd.arg(&self.key);
+        let mut pipe = redis::pipe();
+        pipe.cmd("SDIFF").arg(&self.key);
         for key in other_keys {
-            cmd.arg(key);
+            pipe.arg(key);
         }
-        let members: Vec<String> = cmd.query_async(&mut conn).await
+        let members: Vec<String> = pipe.query_async(&mut conn).await
             .map_err(|e| AppError::redis(e.to_string(), Some("SDIFF")))?;
         Ok(members)
     }
 
     /// DEL key
-    pub async fn deleteSet(&self) -> AppResult<i64> {
+    pub async fn delete_set(&self) -> AppResult<i64> {
         let mut conn = self.conn.clone();
         let n: i64 = redis::cmd("DEL").arg(&self.key).query_async(&mut conn).await
             .map_err(|e| AppError::redis(e.to_string(), Some("DEL")))?;

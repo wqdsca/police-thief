@@ -1,4 +1,4 @@
-//! redisGetKey.rs
+//! redis_get_key.rs
 //! Redis 키 네이밍을 타입 안전하게 관리한다.
 //!
 //! - 기존 API: `get_key(KeyType, Option<u32>) -> String` (하위 호환 유지)
@@ -7,15 +7,15 @@
 
 use std::fmt;
 
-use crate::Share::Comman::error::{AppError, AppResult};
+use crate::share::comman::error::{AppError, AppResult};
 
 /// Redis 키 타입 정의
 ///
-/// - `User`            => "user:{id}"
-/// - `RoomInfo`        => "room:list:{id}"
-/// - `RoomUserList`    => "room:user:{id}"
-/// - `RoomListByTime`  => "room:list:time" (id 불필요)
-/// - `Custom(String)`  => "{custom}" 또는 "{custom}:{id}"
+/// - `User`            => "v1:police-thief:user:{id}"
+/// - `RoomInfo`        => "v1:police-thief:room:list:{id}"
+/// - `RoomUserList`    => "v1:police-thief:room:user:{id}"
+/// - `RoomListByTime`  => "v1:police-thief:room:list:time" (id 불필요)
+/// - `Custom(String)`  => "v1:police-thief:{custom}" 또는 "v1:police-thief:{custom}:{id}"
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum KeyType {
     User,
@@ -75,34 +75,73 @@ impl fmt::Display for KeyType {
     }
 }
 
+/// 키 생성 설정
+#[derive(Debug, Clone)]
+pub struct KeyConfig {
+    pub version: String,
+    pub tenant: String,
+    pub environment: String,
+}
+
+impl Default for KeyConfig {
+    fn default() -> Self {
+        Self {
+            version: "v1".to_string(),
+            tenant: "police-thief".to_string(),
+            environment: "prod".to_string(),
+        }
+    }
+}
+
+impl KeyConfig {
+    pub fn new(version: &str, tenant: &str, environment: &str) -> Self {
+        Self {
+            version: version.to_string(),
+            tenant: tenant.to_string(),
+            environment: environment.to_string(),
+        }
+    }
+
+    /// 키 프리픽스 생성
+    pub fn prefix(&self) -> String {
+        format!("{}:{}:{}", self.version, self.tenant, self.environment)
+    }
+}
+
 /// 권장: panic 없는 안전한 키 생성기
 ///
 /// - id가 필요한 타입에 `None`을 주면 `Err`
 /// - id가 필요 없는 타입에 `Some(_)`을 주면 `Err`
-pub fn try_get_key(key_type: KeyType, id: Option<u32>) -> AppResult<String> {
+pub fn try_get_key_with_config(key_type: KeyType, id: Option<u32>, config: &KeyConfig) -> AppResult<String> {
+    let prefix = config.prefix();
     let s = match key_type {
         KeyType::User => match id {
-            Some(i) => format!("user:{}", i),
+            Some(i) => format!("{}:user:{}", prefix, i),
             None => return Err(AppError::business("User key requires an id", Some("KEY_VALIDATION"))),
         },
         KeyType::RoomInfo => match id {
-            Some(i) => format!("room:list:{}", i),
+            Some(i) => format!("{}:room:list:{}", prefix, i),
             None => return Err(AppError::business("RoomInfo key requires an id", Some("KEY_VALIDATION"))),
         },
         KeyType::RoomUserList => match id {
-            Some(i) => format!("room:user:{}", i),
+            Some(i) => format!("{}:room:user:{}", prefix, i),
             None => return Err(AppError::business("RoomUserList key requires an id", Some("KEY_VALIDATION"))),
         },
         KeyType::RoomListByTime => match id {
-            None => "room:list:time".to_string(),
+            None => format!("{}:room:list:time", prefix),
             Some(_) => return Err(AppError::business("RoomListByTime does not take an id", Some("KEY_VALIDATION"))),
         },
-        KeyType::Custom(prefix) => match id {
-            Some(i) => format!("{}:{}", prefix, i),
-            None => prefix,
+        KeyType::Custom(prefix_suffix) => match id {
+            Some(i) => format!("{}:{}:{}", prefix, prefix_suffix, i),
+            None => format!("{}:{}", prefix, prefix_suffix),
         },
     };
     Ok(s)
+}
+
+/// 기본 설정으로 키 생성
+pub fn try_get_key(key_type: KeyType, id: Option<u32>) -> AppResult<String> {
+    try_get_key_with_config(key_type, id, &KeyConfig::default())
 }
 
 /// 하위 호환: 기존 시그니처 유지 (id 누락 시 panic)
@@ -122,6 +161,16 @@ pub fn list_key(key_type: KeyType) -> AppResult<String> {
     match key_type.list_namespace() {
         Some("room:list:time") => Ok("room:list:time".to_string()),
         Some(ns) => Ok(ns.to_string()),
+        None => Err(AppError::business(format!("list_key not defined for {}", key_type), Some("KEY_VALIDATION"))),
+    }
+}
+
+/// 설정을 포함한 리스트 키 생성
+pub fn list_key_with_config(key_type: KeyType, config: &KeyConfig) -> AppResult<String> {
+    let prefix = config.prefix();
+    match key_type.list_namespace() {
+        Some("room:list:time") => Ok(format!("{}:room:list:time", prefix)),
+        Some(ns) => Ok(format!("{}:{}", prefix, ns)),
         None => Err(AppError::business(format!("list_key not defined for {}", key_type), Some("KEY_VALIDATION"))),
     }
 }

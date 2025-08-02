@@ -1,8 +1,8 @@
 // geo_helper.rs
 use redis::AsyncCommands;
 
-use crate::Share::Comman::error::{AppError, AppResult};
-use crate::Share::Service::Redis::core::RedisConnection;
+use crate::share::comman::error::{AppError, AppResult};
+use crate::share::service::redis::core::RedisConnection;
 
 /// 위치 기반 매칭/검색
 #[derive(Clone)]

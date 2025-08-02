@@ -1,8 +1,8 @@
 // zset_helper.rs
 use redis::AsyncCommands;
 
-use crate::Share::Comman::error::{AppError, AppResult};
-use crate::Share::Service::Redis::core::RedisConnection;
+use crate::share::comman::error::{AppError, AppResult};
+use crate::share::service::redis::core::RedisConnection;
 
 /// 점수 기반 랭킹/정렬에 사용
 #[derive(Clone)]

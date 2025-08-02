@@ -1,9 +1,26 @@
 // hash_helper.rs
-use redis::AsyncCommands;
+use redis::{AsyncCommands, Pipeline};
 use serde::{de::DeserializeOwned, Serialize};
 
-use crate::Share::Comman::error::{AppError, AppResult};
-use crate::Share::Service::Redis::core::RedisConnection;
+use crate::share::comman::error::{AppError, AppResult};
+use crate::share::service::redis::core::RedisConnection;
+
+/// Hash 대량 연산을 위한 Lua 스크립트
+const HASH_BATCH_UPDATE_LUA: &str = r#"
+local key = KEYS[1]
+local ttl = tonumber(ARGV[1])
+local updates = cjson.decode(ARGV[2])
+
+for field, value in pairs(updates) do
+  redis.call('HSET', key, field, value)
+end
+
+if ttl > 0 then
+  redis.call('EXPIRE', key, ttl)
+end
+
+return #updates
+"#;
 
 /// 운영용 Hash Helper:
 /// - 필드 단건/배치 set/get
@@ -21,7 +38,7 @@ impl HashHelper {
     }
 
     /// HSET field value
-    pub async fn setField(&self, field: &str, value: &str) -> AppResult<bool> {
+    pub async fn set_field(&self, field: &str, value: &str) -> AppResult<bool> {
         let mut conn = self.conn.clone();
         let n: i64 = conn.hset(&self.key, field, value).await
             .map_err(|e| AppError::redis(e.to_string(), Some("HSET")))?;
@@ -33,22 +50,22 @@ impl HashHelper {
     }
 
     /// HGET field
-    pub async fn getField(&self, field: &str) -> AppResult<Option<String>> {
+    pub async fn get_field(&self, field: &str) -> AppResult<Option<String>> {
         let mut conn = self.conn.clone();
         let v: Option<String> = conn.hget(&self.key, field).await
             .map_err(|e| AppError::redis(e.to_string(), Some("HGET")))?;
         Ok(v)
     }
 
-    /// HMSET (여러 필드)
-    pub async fn setMultipleFields<T: AsRef<str>>(&self, pairs: &[(T, T)]) -> AppResult<()> {
+    /// HMSET (여러 필드) - Pipeline 사용
+    pub async fn set_multiple_fields<T: AsRef<str>>(&self, pairs: &[(T, T)]) -> AppResult<()> {
         let mut conn = self.conn.clone();
-        let mut cmd = redis::cmd("HMSET");
-        cmd.arg(&self.key);
+        let mut pipe = redis::pipe();
+        pipe.cmd("HMSET").arg(&self.key);
         for (k, v) in pairs {
-            cmd.arg(k.as_ref()).arg(v.as_ref());
+            pipe.arg(k.as_ref()).arg(v.as_ref());
         }
-        cmd.query_async::<_, ()>(&mut conn).await
+        pipe.query_async::<_, ()>(&mut conn).await
             .map_err(|e| AppError::redis(e.to_string(), Some("HMSET")))?;
         if let Some(sec) = self.ttl { 
             let _: bool = conn.expire(&self.key, sec as usize).await
@@ -57,8 +74,27 @@ impl HashHelper {
         Ok(())
     }
 
+    /// 대량 필드 업데이트 - Lua 스크립트 사용
+    pub async fn batch_update_fields(&self, updates: &[(String, String)]) -> AppResult<usize> {
+        let mut conn = self.conn.clone();
+        let script = redis::Script::new(HASH_BATCH_UPDATE_LUA);
+        let updates_json = serde_json::to_string(updates)
+            .map_err(|e| AppError::serialization(e.to_string(), Some("JSON")))?;
+        let ttl = self.ttl.unwrap_or(0) as i64;
+        
+        let result: i64 = script
+            .key(&self.key)
+            .arg(ttl)
+            .arg(updates_json)
+            .invoke_async(&mut conn)
+            .await
+            .map_err(|e| AppError::redis(e.to_string(), Some("LUA_BATCH_UPDATE")))?;
+        
+        Ok(result as usize)
+    }
+
     /// HGETALL
-    pub async fn getAllFields(&self) -> AppResult<Vec<(String, String)>> {
+    pub async fn get_all_fields(&self) -> AppResult<Vec<(String, String)>> {
         let mut conn = self.conn.clone();
         let v: Vec<(String, String)> = redis::cmd("HGETALL").arg(&self.key).query_async(&mut conn).await
             .map_err(|e| AppError::redis(e.to_string(), Some("HGETALL")))?;
@@ -66,7 +102,7 @@ impl HashHelper {
     }
 
     /// HINCRBY
-    pub async fn incrementField(&self, field: &str, by: i64) -> AppResult<i64> {
+    pub async fn increment_field(&self, field: &str, by: i64) -> AppResult<i64> {
         let mut conn = self.conn.clone();
         let v: i64 = redis::cmd("HINCRBY").arg(&self.key).arg(field).arg(by).query_async(&mut conn).await
             .map_err(|e| AppError::redis(e.to_string(), Some("HINCRBY")))?;
@@ -78,15 +114,28 @@ impl HashHelper {
     }
 
     /// HDEL field
-    pub async fn deleteField(&self, field: &str) -> AppResult<i64> {
+    pub async fn delete_field(&self, field: &str) -> AppResult<i64> {
         let mut conn = self.conn.clone();
         let v: i64 = redis::cmd("HDEL").arg(&self.key).arg(field).query_async(&mut conn).await
             .map_err(|e| AppError::redis(e.to_string(), Some("HDEL")))?;
         Ok(v)
     }
 
+    /// 다중 필드 삭제 - Pipeline 사용
+    pub async fn delete_multiple_fields(&self, fields: &[&str]) -> AppResult<i64> {
+        let mut conn = self.conn.clone();
+        let mut pipe = redis::pipe();
+        pipe.cmd("HDEL").arg(&self.key);
+        for field in fields {
+            pipe.arg(field);
+        }
+        let result: i64 = pipe.query_async(&mut conn).await
+            .map_err(|e| AppError::redis(e.to_string(), Some("HDEL_MULTIPLE")))?;
+        Ok(result)
+    }
+
     /// HEXISTS field
-    pub async fn fieldExists(&self, field: &str) -> AppResult<bool> {
+    pub async fn field_exists(&self, field: &str) -> AppResult<bool> {
         let mut conn = self.conn.clone();
         let v: i64 = redis::cmd("HEXISTS").arg(&self.key).arg(field).query_async(&mut conn).await
             .map_err(|e| AppError::redis(e.to_string(), Some("HEXISTS")))?;
@@ -94,7 +143,7 @@ impl HashHelper {
     }
 
     /// HLEN
-    pub async fn getFieldCount(&self) -> AppResult<usize> {
+    pub async fn get_field_count(&self) -> AppResult<usize> {
         let mut conn = self.conn.clone();
         let v: i64 = redis::cmd("HLEN").arg(&self.key).query_async(&mut conn).await
             .map_err(|e| AppError::redis(e.to_string(), Some("HLEN")))?;
@@ -104,7 +153,7 @@ impl HashHelper {
     // ---------- JSON 편의 ----------
 
     /// 키 자체에 JSON 통째로 저장 (Hash 대신 String) – 운영에서 자주 쓰는 패턴
-    pub async fn setJson<T: Serialize>(&self, value: &T) -> AppResult<()> {
+    pub async fn set_json<T: Serialize>(&self, value: &T) -> AppResult<()> {
         let mut conn = self.conn.clone();
         let s = serde_json::to_string(value)
             .map_err(|e| AppError::serialization(e.to_string(), Some("JSON")))?;
@@ -121,7 +170,7 @@ impl HashHelper {
         Ok(())
     }
 
-    pub async fn getJson<T: DeserializeOwned>(&self) -> AppResult<Option<T>> {
+    pub async fn get_json<T: DeserializeOwned>(&self) -> AppResult<Option<T>> {
         let mut conn = self.conn.clone();
         let s: Option<String> = redis::cmd("GET").arg(&self.key).query_async(&mut conn).await
             .map_err(|e| AppError::redis(e.to_string(), Some("GET")))?;
