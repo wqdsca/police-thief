@@ -1,5 +1,5 @@
 use std::time::Duration;
-use tokio::time::{sleep, timeout};
+use tokio::time::sleep;
 use anyhow::{anyhow, Result};
 use rand::Rng;
 use std::future::Future;
@@ -25,20 +25,18 @@ impl RetryOperation {
         Fut: Future<Output = Result<T>>,
     {
         let mut attempts = self.retries;
-        let mut delay = self.delay_ms;
 
         while attempts > 0 {
-            let op_future = operation();
-            match timeout(Duration::from_millis(delay), op_future).await {
-                Ok(Ok(val)) => return Ok(val),
-                _ => {
+            match operation().await {
+                Ok(val) => return Ok(val),
+                Err(e) => {
                     attempts -= 1;
                     if attempts == 0 {
-                        break;
+                        return Err(e);
                     }
                     // 지터 추가
                     let jitter = rand::thread_rng().gen_range(0..self.jitter_ms);
-                    delay = (delay as f64 * self.backoff).round() as u64 + jitter;
+                    let delay = (self.delay_ms as f64 * self.backoff).round() as u64 + jitter;
                     sleep(Duration::from_millis(delay)).await;
                 }
             }

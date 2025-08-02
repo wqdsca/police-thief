@@ -5,14 +5,15 @@ use tracing_subscriber;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::signal;
+use tokio::process::Command;
 
 mod tests;
 
 /// 게임센터 서버 상태
-#[derive(Clone)]
 pub struct GameCenterServer {
     pub is_running: Arc<AtomicBool>,
     pub redis_config: Option<RedisConfig>,
+    pub redis_process: Option<tokio::process::Child>,
 }
 
 impl GameCenterServer {
@@ -21,12 +22,80 @@ impl GameCenterServer {
         Self {
             is_running: Arc::new(AtomicBool::new(false)),
             redis_config: None,
+            redis_process: None,
         }
+    }
+
+    /// Redis 서버 시작
+    async fn start_redis_server(&mut self) -> Result<()> {
+        info!("🔴 Redis 서버 시작 중...");
+        
+        // Redis 서버가 이미 실행 중인지 확인
+        let redis_check = Command::new("redis-cli")
+            .arg("ping")
+            .output()
+            .await;
+        
+        if redis_check.is_ok() {
+            info!("✅ Redis 서버가 이미 실행 중입니다.");
+            return Ok(());
+        }
+        
+        // Redis 서버 시작
+        let redis_process = Command::new("redis-server")
+            .spawn()
+            .context("Redis 서버 시작 실패")?;
+        
+        self.redis_process = Some(redis_process);
+        
+        // Redis 서버가 완전히 시작될 때까지 대기
+        tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+        
+        // Redis 연결 테스트
+        let mut retry_count = 0;
+        while retry_count < 5 {
+            let ping_result = Command::new("redis-cli")
+                .arg("ping")
+                .output()
+                .await;
+            
+            if ping_result.is_ok() {
+                info!("✅ Redis 서버가 성공적으로 시작되었습니다!");
+                return Ok(());
+            }
+            
+            retry_count += 1;
+            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+        }
+        
+        Err(anyhow::anyhow!("Redis 서버 시작 실패"))
+    }
+
+    /// Redis 서버 중지
+    async fn stop_redis_server(&mut self) -> Result<()> {
+        info!("🔴 Redis 서버 중지 중...");
+        
+        // Redis 서버 종료 명령 전송
+        let _ = Command::new("redis-cli")
+            .arg("SHUTDOWN")
+            .output()
+            .await;
+        
+        // Redis 프로세스가 있다면 종료
+        if let Some(mut process) = self.redis_process.take() {
+            let _ = process.kill().await;
+        }
+        
+        info!("✅ Redis 서버가 성공적으로 중지되었습니다!");
+        Ok(())
     }
 
     /// 서버 시작
     pub async fn start(&mut self) -> Result<()> {
         info!("🚀 게임센터 서버 시작 중...");
+        
+        // Redis 서버 시작
+        self.start_redis_server().await?;
         
         // Redis 연결 설정
         let redis_config = RedisConfig::new()
@@ -49,6 +118,9 @@ impl GameCenterServer {
         
         // 서버 상태를 중지로 설정
         self.is_running.store(false, Ordering::SeqCst);
+        
+        // Redis 서버 중지
+        self.stop_redis_server().await?;
         
         // Redis 연결 정리
         self.redis_config = None;
@@ -153,7 +225,9 @@ pub async fn stop_gamecenter() -> Result<()> {
 #[tokio::main]
 async fn main() -> Result<()> {
     // 로깅 설정
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
     
     // 명령행 인수 확인
     let args: Vec<String> = std::env::args().collect();
@@ -190,8 +264,19 @@ async fn main() -> Result<()> {
         }
         "status" => {
             // 상태 확인 모드
+            println!("📊 게임센터 서버 상태 확인 중...");
             let server = GameCenterServer::new();
             server.print_status();
+            println!("📊 Redis 서버 상태 확인 중...");
+            let redis_status = Command::new("redis-cli")
+                .arg("ping")
+                .output()
+                .await;
+            
+            match redis_status {
+                Ok(_) => println!("✅ Redis 서버: 실행 중"),
+                Err(_) => println!("❌ Redis 서버: 중지됨"),
+            }
         }
         _ => {
             println!("사용법:");

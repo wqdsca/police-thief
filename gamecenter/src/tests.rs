@@ -84,13 +84,13 @@ pub async fn test_hash_helper(redis_config: &RedisConfig) -> Result<()> {
     
     let helper = HashHelper::new(
         redis_config.clone(),
-        123, // user_id
+        KeyType::User, // KeyType 사용
         Some(3600), // TTL: 1시간
         Some(100), // limit
     );
     
     // 테스트 데이터
-    #[derive(serde::Serialize)]
+    #[derive(serde::Serialize, serde::Deserialize, Debug)]
     struct UserData {
         name: String,
         level: u32,
@@ -103,14 +103,16 @@ pub async fn test_hash_helper(redis_config: &RedisConfig) -> Result<()> {
         score: 1500,
     };
     
+    let user_id = 123; // user_id 추가
+    
     // Hash에 데이터 저장
-    let key = helper.set_hash_field("user_data", &user_data).await?;
+    let key = helper.set_hash_field(user_id, "user_data", &user_data).await?;
     println!("✅ Hash에 데이터 저장 완료: {}", key);
     
     // Hash에서 데이터 가져오기
-    let retrieved_data = helper.get_hash_field("user_data").await?;
+    let retrieved_data = helper.get_hash_field::<UserData>(user_id, "user_data").await?;
     if let Some(data) = retrieved_data {
-        println!("✅ Hash에서 데이터 조회 성공: {}", data);
+        println!("✅ Hash에서 데이터 조회 성공: {:?}", data);
     } else {
         println!("❌ Hash에서 데이터를 찾을 수 없습니다");
     }
