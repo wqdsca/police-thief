@@ -1,1 +1,17 @@
-/target
+# Binaries
+/target/
+
+# IntelliJ / VSCode
+**/*.rs.bk
+.idea/
+.vscode/
+
+# Cargo
+Cargo.lock
+
+# By OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
