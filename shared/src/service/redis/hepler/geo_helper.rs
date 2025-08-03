@@ -40,7 +40,7 @@ impl GeoHelper {
                 let mut conn = self.conn.get_connection();
 
                 let mut p = redis::pipe();
-                p.atomic().geo_add(&key, &[(longitude, latitude, &json)]);
+                p.geo_add(&key, &[(longitude, latitude, &json)]);
 
                 if let Some(ttl_sec) = ttl_opt {
                     p.expire(&key, ttl_sec as i64);

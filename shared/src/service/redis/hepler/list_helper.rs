@@ -32,7 +32,7 @@ impl ListHelper {
                 let mut conn = self.conn.get_connection();
 
                 let mut p = redis::pipe();
-                p.atomic().lpush(&key, &json);
+                p.lpush(&key, &json);
 
                 if let Some(ttl_sec) = ttl_opt {
                     p.expire(&key, ttl_sec as i64);
@@ -66,7 +66,7 @@ impl ListHelper {
                 let mut conn = self.conn.get_connection();
 
                 let mut p = redis::pipe();
-                p.atomic().rpush(&key, &json);
+                p.rpush(&key, &json);
 
                 if let Some(ttl_sec) = ttl_opt {
                     p.expire(&key, ttl_sec as i64);

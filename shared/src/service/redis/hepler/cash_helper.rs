@@ -198,12 +198,11 @@ impl CacheHelper {
 
     /// 캐시 통계 정보
     pub async fn get_cache_stats(&self) -> Result<(u64, u64)> {
-        let data_key = self.key.get_key(&1); // 임시 키
+        let _data_key = self.key.get_key(&1); // 임시 키
         let list_key = self.key.get_index_key();
 
         let (data_count, list_len): (u64, i64) = RETRY_OPT
             .execute::<(u64, i64), _, _>(|| {
-                let data_key = data_key.clone();
                 let list_key = list_key.clone();
                 async move {
                     let mut conn = self.conn.get_connection();

@@ -42,13 +42,29 @@ impl HashHelper {
                     if let Some(ttl_sec) = ttl_opt {
                         // HSET + EXPIRE 파이프라인
                         let mut p = redis::pipe();
-                        p.atomic().hset(&key, &field, &json).expire(&key, ttl_sec as i64);
-                        // 두 개의 응답(HSET: u64, EXPIRE: bool)
-                        let (added, _exp_ok): (u64, bool) = p
+                        p.hset(&key, &field, &json).expire(&key, ttl_sec as i64);
+                        
+                        let results: Vec<redis::Value> = p
                             .query_async(&mut conn)
                             .await
                             .context("HashHelper: PIPELINE(HSET+EXPIRE) 실패")?;
-                        Ok(added)
+                        
+                        if results.len() >= 2 {
+                            let added = match &results[0] {
+                                redis::Value::Int(n) => *n as u64,
+                                redis::Value::Bulk(items) if !items.is_empty() => {
+                                    if let redis::Value::Int(n) = &items[0] {
+                                        *n as u64
+                                    } else {
+                                        return Err(anyhow::anyhow!("HashHelper: HSET 응답 파싱 실패"));
+                                    }
+                                },
+                                _ => return Err(anyhow::anyhow!("HashHelper: HSET 응답 파싱 실패")),
+                            };
+                            Ok(added)
+                        } else {
+                            Err(anyhow::anyhow!("HashHelper: 파이프라인 응답 개수 오류"))
+                        }
                     } else {
                         let added: u64 = conn
                             .hset(&key, &field, &json)
