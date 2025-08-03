@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package room;
+
+// 방 관련 서비스 정의
+service RoomService {
+  rpc MakeRoom (MakeRoomRequest) returns (MakeRoomResponse);
+  rpc GetRoomList (GetRoomListRequest) returns (GetRoomListResponse);
+}
+
+// 방 생성 요청
+message MakeRoomRequest {
+  int32 user_id = 1;
+  string nick_name = 2;
+  string room_name = 3;
+  int32 max_player_num = 4;
+}
+
+// 방 생성 응답
+message MakeRoomResponse {
+  bool success = 1;
+  int32 room_id = 2;
+}
+
+// 방 리스트 요청
+message GetRoomListRequest {
+  int32 last_room_id = 1;
+}
+
+// 방 리스트 응답
+message GetRoomListResponse {
+  repeated RoomInfo rooms = 1;
+}
+
+// 방 정보
+message RoomInfo {
+  int32 room_id = 1;
+  string room_name = 2;
+  int32 current_player_num = 3;
+  int32 max_player_num = 4;
+}
