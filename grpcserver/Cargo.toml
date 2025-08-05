@@ -1,19 +1,19 @@
 [package]
 name = "grpcserver"
 version = "0.1.0"
-edition = "2024"
+edition = "2024"  # ← 2015, 2018, 2021 중 하나
 
 [dependencies]
-tonic = "0.10"
-prost = "0.12"
-tokio = { version = "1.0", features = ["full"] }
-anyhow = "1.0"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-dotenv = "0.15"
-tracing = "0.1"
-tracing-subscriber = "0.3"
-chrono = { version = "0.4", features = ["serde"] }
+tonic.workspace = true
+prost.workspace = true
+tokio.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+dotenv.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+chrono.workspace = true
 
 # Shared 라이브러리 의존성
 shared = { path = "../shared" }

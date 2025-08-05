@@ -4,24 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# Redis
-redis = { version = "0.24.0", features = ["tokio-comp", "connection-manager"] }
-
-# Async runtime
-tokio = { version = "1.35.0", features = ["full"] }
-
-# Error handling
-anyhow = "1.0.79"
-
-# Serialization
-serde = { version = "1.0.195", features = ["derive"] }
-serde_json = "1.0.111"
-
-# Random number generation
-rand = "0.8.5"
-
-# Environment variables
-dotenv = "0.15.0"
-
-# Logging
-tracing = "0.1.40" 
+redis.workspace = true
+tokio.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+rand.workspace = true
+dotenv.workspace = true
+tracing.workspace = true 
