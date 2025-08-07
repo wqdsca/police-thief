@@ -11,6 +11,7 @@ use crate::user::{
     LoginRequest, LoginResponse,
     RegisterRequest, RegisterResponse,
 };
+use crate::tool::error::{AppError, helpers};
 
 /// User Service gRPC 컨트롤러
 /// 
@@ -31,6 +32,49 @@ impl UserController {
     /// * `Self` - 초기화된 UserController 인스턴스
     pub fn new(svc: UserSvc) -> Self { 
         Self { svc } 
+    }
+
+    /// 로그인 요청을 검증합니다.
+    /// 
+    /// # Arguments
+    /// * `req` - 로그인 요청
+    /// 
+    /// # Returns
+    /// * `Result<(), AppError>` - 검증 결과
+    fn validate_login_request(&self, req: &LoginRequest) -> Result<(), AppError> {
+        // 로그인 타입 검증
+        let valid_login_types = vec!["google", "apple", "guest"];
+        if !valid_login_types.contains(&req.login_type.as_str()) {
+            return Err(AppError::InvalidLoginType(req.login_type.clone()));
+        }
+
+        // 로그인 토큰 검증
+        helpers::validate_string(req.login_token.clone(), "login_token", 1000)?;
+
+        Ok(())
+    }
+
+    /// 회원가입 요청을 검증합니다.
+    /// 
+    /// # Arguments
+    /// * `req` - 회원가입 요청
+    /// 
+    /// # Returns
+    /// * `Result<(), AppError>` - 검증 결과
+    fn validate_register_request(&self, req: &RegisterRequest) -> Result<(), AppError> {
+        // 로그인 타입 검증
+        let valid_login_types = vec!["google", "apple", "guest"];
+        if !valid_login_types.contains(&req.login_type.as_str()) {
+            return Err(AppError::InvalidLoginType(req.login_type.clone()));
+        }
+
+        // 로그인 토큰 검증
+        helpers::validate_string(req.login_token.clone(), "login_token", 1000)?;
+
+        // 닉네임 검증
+        helpers::validate_string(req.nick_name.clone(), "nick_name", 20)?;
+
+        Ok(())
     }
 }
 
@@ -53,14 +97,19 @@ impl UserService for UserController {
         let r = req.into_inner();
         info!("로그인 요청: login_type={}", r.login_type);
         
+        // 요청 검증
+        if let Err(e) = self.validate_login_request(&r) {
+            return Err(e.to_status());
+        }
+        
         // 비즈니스 로직 호출
         let (user_id, nick_name, access_token, refresh_token, is_register) = self
             .svc
             .login_user(r.login_type, r.login_token)
             .await
             .map_err(|e| {
-                error!("로그인 실패: {}", e);
-                Status::internal(e.to_string())
+                let app_error = AppError::InternalError(format!("로그인 실패: {}", e));
+                app_error.to_status()
             })?;
         
         info!("로그인 성공: user_id={}, nick={}", user_id, nick_name);
@@ -91,14 +140,19 @@ impl UserService for UserController {
         let r = req.into_inner();
         info!("회원가입 요청: login_type={}, nick={}", r.login_type, r.nick_name);
         
+        // 요청 검증
+        if let Err(e) = self.validate_register_request(&r) {
+            return Err(e.to_status());
+        }
+        
         // 비즈니스 로직 호출
         self
             .svc
             .register_user(r.login_type, r.login_token, r.nick_name)
             .await
             .map_err(|e| {
-                error!("회원가입 실패: {}", e);
-                Status::internal(e.to_string())
+                let app_error = AppError::InternalError(format!("회원가입 실패: {}", e));
+                app_error.to_status()
             })?;
         
         info!("회원가입 성공");

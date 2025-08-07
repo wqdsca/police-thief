@@ -4,6 +4,7 @@
 //! 실제 데이터베이스 연동 및 사용자 관련 비즈니스 규칙을 처리합니다.
 
 use tracing::{info, warn};
+use crate::tool::error::{AppError, helpers};
 
 /// User Service 비즈니스 로직
 /// 
@@ -30,12 +31,12 @@ impl UserService {
     /// * `login_token` - 로그인 토큰 또는 인증 정보
     /// 
     /// # Returns
-    /// * `anyhow::Result<(i32, String, String, String, bool)>` - (user_id, nick_name, access_token, refresh_token, is_register)
+    /// * `Result<(i32, String, String, String, bool), AppError>` - (user_id, nick_name, access_token, refresh_token, is_register)
     pub async fn login_user(
         &self,
         login_type: String,
         login_token: String,
-    ) -> anyhow::Result<(i32, String, String, String, bool)> {
+    ) -> Result<(i32, String, String, String, bool), AppError> {
         info!("로그인 서비스 호출: login_type={}", login_type);
         
         // TODO: 실제 인증 로직 구현 필요
@@ -43,6 +44,17 @@ impl UserService {
         // - 사용자 정보 조회
         // - 세션 생성
         // - 액세스 토큰 발급
+        
+        // 시뮬레이션: 인증 실패 (테스트용)
+        if login_token.contains("invalid") {
+            return Err(AppError::AuthError("테스트용 인증 실패: 토큰에 'invalid'가 포함됨".to_string()));
+        }
+        
+        // 시뮬레이션: 사용자 없음 (테스트용)
+        if login_token.contains("notfound") {
+            return Err(AppError::UserNotFound("테스트용 사용자 없음: 토큰에 'notfound'가 포함됨".to_string()));
+        }
+        
         let user_id = 123; // 더미 데이터
         let nick_name = "nick".to_string();
         let access_token = "access_token".to_string();
@@ -64,13 +76,13 @@ impl UserService {
     /// * `nick_name` - 사용자가 설정한 닉네임
     /// 
     /// # Returns
-    /// * `anyhow::Result<()>` - 회원가입 성공 여부
+    /// * `Result<(), AppError>` - 회원가입 성공 여부
     pub async fn register_user(
         &self,
         login_type: String,
         login_token: String,
         nick_name: String,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), AppError> {
         info!("회원가입 서비스 호출: login_type={}, nick={}", login_type, nick_name);
         
         // TODO: 실제 회원가입 로직 구현 필요
@@ -78,6 +90,16 @@ impl UserService {
         // - 닉네임 중복 확인
         // - 사용자 정보 데이터베이스 저장
         // - 초기 설정 적용
+        
+        // 시뮬레이션: 닉네임 중복 (테스트용)
+        if nick_name == "duplicate" {
+            return Err(AppError::NicknameExists("테스트용 닉네임 중복: 'duplicate'".to_string()));
+        }
+        
+        // 시뮬레이션: 데이터베이스 오류 (테스트용)
+        if nick_name.contains("db_error") {
+            return Err(AppError::DatabaseQuery("테스트용 데이터베이스 쿼리 실패".to_string()));
+        }
         
         info!("회원가입 완료");
         Ok(())

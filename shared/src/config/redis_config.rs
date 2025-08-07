@@ -13,15 +13,23 @@ pub struct RedisConfig {
 
 impl RedisConfig {
     pub async fn new() -> Result<Self, RedisError> {
-        // .env 파일 로드 (현재 디렉토리와 상위 디렉토리에서 찾기)
-        let env_paths = vec![".env", "../.env", "../../.env"];
+        // .env 파일 로드 - workspace root에서 찾기
+        let current_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+        let workspace_env = current_dir.join(".env");
+        let parent_env = current_dir.parent().map(|p| p.join(".env"));
+        
         let mut env_loaded = false;
         
-        for path in env_paths {
-            if std::path::Path::new(path).exists() {
-                dotenv::from_filename(path).ok();
+        // 현재 디렉토리의 .env 파일 시도
+        if workspace_env.exists() {
+            dotenv::from_path(&workspace_env).ok();
+            env_loaded = true;
+        }
+        // 상위 디렉토리의 .env 파일 시도 (서브파크에서 실행되는 경우)
+        else if let Some(parent_env) = parent_env {
+            if parent_env.exists() {
+                dotenv::from_path(&parent_env).ok();
                 env_loaded = true;
-                break;
             }
         }
         

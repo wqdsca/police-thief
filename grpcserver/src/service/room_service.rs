@@ -4,6 +4,7 @@
 //! 실제 데이터베이스 연동 및 방 관련 비즈니스 규칙을 처리합니다.
 
 use tracing::{info, warn};
+use crate::tool::error::{AppError, helpers};
 
 /// Room Service 비즈니스 로직
 /// 
@@ -32,14 +33,14 @@ impl RoomService {
     /// * `max_player_num` - 방의 최대 플레이어 수
     /// 
     /// # Returns
-    /// * `anyhow::Result<i32>` - 생성된 방의 ID
+    /// * `Result<i32, AppError>` - 생성된 방의 ID
     pub async fn make_room(
         &self,
         user_id: i32,
         nick_name: String,
         room_name: String,
         max_player_num: i32,
-    ) -> anyhow::Result<i32> {
+    ) -> Result<i32, AppError> {
         info!("방 생성 서비스 호출: user_id={}, room_name={}, max_player={}", 
               user_id, room_name, max_player_num);
         
@@ -47,6 +48,12 @@ impl RoomService {
         // - 방 정보를 데이터베이스에 저장
         // - 방 생성자 정보 기록
         // - 방 상태 초기화
+        
+        // 시뮬레이션: 가끔 에러 발생 (테스트용)
+        if room_name.contains("error") {
+            return Err(AppError::InvalidInput("테스트용 에러: 방 이름에 'error'가 포함됨".to_string()));
+        }
+        
         let room_id = 42; // 더미 데이터
         
         info!("방 생성 완료: room_id={}", room_id);
@@ -62,17 +69,23 @@ impl RoomService {
     /// * `last_room_id` - 마지막으로 조회한 방의 ID (페이징 처리용)
     /// 
     /// # Returns
-    /// * `anyhow::Result<Vec<crate::room::RoomInfo>>` - 방 정보 리스트
+    /// * `Result<Vec<crate::room::RoomInfo>, AppError>` - 방 정보 리스트
     pub async fn get_room_list(
         &self,
         last_room_id: i32,
-    ) -> anyhow::Result<Vec<crate::room::RoomInfo>> {
+    ) -> Result<Vec<crate::room::RoomInfo>, AppError> {
         info!("방 리스트 조회 서비스 호출: last_room_id={}", last_room_id);
         
         // TODO: 실제 DB/Redis 조회 로직 구현 필요
         // - 데이터베이스에서 방 목록 조회
         // - 페이징 처리
         // - 방 상태 필터링
+        
+        // 시뮬레이션: 데이터베이스 연결 실패 (테스트용)
+        if last_room_id == -999 {
+            return Err(AppError::DatabaseConnection("테스트용 데이터베이스 연결 실패".to_string()));
+        }
+        
         let rooms = vec![]; // 더미 데이터
         
         info!("방 리스트 조회 완료: {}개 방", rooms.len());

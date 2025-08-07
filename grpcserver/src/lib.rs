@@ -8,6 +8,7 @@
 //! - **Room Service**: 방 생성 및 조회 기능
 //! - **User Service**: 사용자 인증 및 회원가입 기능
 //! - **Integration Tests**: gRPC 클라이언트 테스트
+//! - **Error Management**: 체계적인 에러 처리 시스템
 //! 
 //! # Example
 //! 
@@ -63,9 +64,16 @@ pub mod server;
 /// gRPC 클라이언트 테스트 코드를 포함합니다.
 pub mod test;
 
+/// Tool 모듈
+/// 
+/// 유틸리티 도구들을 포함합니다.
+/// 에러 관리, 헬퍼 함수 등이 정의되어 있습니다.
+pub mod tool;
+
 // Public API exports
 pub use controller::*;
 pub use service::*;
 pub use server::*;
 pub use test::*;
+pub use tool::*;
 

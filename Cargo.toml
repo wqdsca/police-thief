@@ -20,5 +20,7 @@ tonic = "0.10"
 prost = "0.12"
 chrono = { version = "0.4", features = ["serde"] }
 tokio-test = "0.4.3"
-tonic-build = "0.10" 
+tonic-build = "0.10"
+jsonwebtoken = "9.2"
+thiserror = "1.0" 
 
