@@ -72,38 +72,9 @@ impl RoomController {
     /// * `req` - gRPC 요청
     /// 
     /// # Returns
-    /// * `Result<i32, Status>` - 검증된 사용자 ID 또는 에러
-    fn verify_jwt_token(&self, req: &Request<()>) -> Result<i32, Status> {
-        // Authorization 헤더에서 토큰 추출
-        let auth_header = req.metadata()
-            .get("authorization")
-            .ok_or_else(|| Status::unauthenticated("Missing authorization header"))?;
-        
-        let auth_value = auth_header
-            .to_str()
-            .map_err(|_| Status::invalid_argument("Invalid authorization header"))?;
-        
-        if !auth_value.starts_with("Bearer ") {
-            return Err(Status::invalid_argument("Invalid authorization format. Expected 'Bearer <token>'"));
-        }
-        
-        let token = auth_value[7..].to_string(); // "Bearer " 제거
-        
-        if token.is_empty() {
-            return Err(Status::invalid_argument("Empty token"));
-        }
-        
-        // 토큰 검증
-        match self.token_service.verify_token(&token) {
-            Ok(user_id) => {
-                info!("✅ JWT 토큰 검증 성공: user_id={}", user_id);
-                Ok(user_id)
-            }
-            Err(e) => {
-                error!("❌ JWT 토큰 검증 실패: error={}", e);
-                Err(Status::unauthenticated("Invalid or expired token"))
-            }
-        }
+    /// * `Result<Option<i32>, Status>` - 검증된 사용자 ID 또는 None
+    fn verify_jwt_token(&self, req: &Request<()>) -> Result<Option<i32>, Status> {
+        self.token_service.with_optional_auth(req, |user_id| Ok(user_id))
     }
 }
 
@@ -131,11 +102,14 @@ impl RoomService for RoomController {
             return Err(e.to_status());
         }
         
-        // JWT 토큰 검증 (선택적 - 실제 구현에서는 필요에 따라 활성화)
-        // let verified_user_id = self.verify_jwt_token(&req)?;
-        // if verified_user_id != req_inner.user_id {
-        //     return Err(Status::permission_denied("User ID mismatch"));
-        // }
+        // JWT 토큰 검증 (선택적)
+        let verified_user_id = self.verify_jwt_token(&Request::new(()))?;
+        if let Some(user_id) = verified_user_id {
+            // 토큰이 있으면 사용자 ID 검증
+            if user_id != req_inner.user_id {
+                return Err(Status::permission_denied("User ID mismatch"));
+            }
+        }
         
         // 비즈니스 로직 호출
         let room_id = self
@@ -175,7 +149,7 @@ impl RoomService for RoomController {
         }
         
         // JWT 토큰 검증 (선택적)
-        // let _verified_user_id = self.verify_jwt_token(&req)?;
+        let _verified_user_id = self.verify_jwt_token(&Request::new(()))?;
         
         // 비즈니스 로직 호출
         let rooms = self
