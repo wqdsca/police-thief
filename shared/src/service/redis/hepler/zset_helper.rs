@@ -45,7 +45,7 @@ impl ZSetHelper {
                     .await
                     .context("ZSetHelper: PIPELINE(ZADD..TRIM) 실패")?;
 
-                let first = resp.get(0).ok_or_else(|| anyhow!("파이프라인 응답 비어있음"))?;
+                let first = resp.first().ok_or_else(|| anyhow!("파이프라인 응답 비어있음"))?;
                 let added: u64 =
                     FromRedisValue::from_redis_value(first).context("ZADD 응답 파싱 실패")?;
                 Ok(added)

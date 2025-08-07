@@ -4,7 +4,7 @@
 //! UserService trait을 구현하여 gRPC 서버에서 사용자 관련 요청을 처리합니다.
 
 use tonic::{Request, Response, Status};
-use tracing::{info, error};
+use tracing::info;
 use crate::service::user_service::UserService as UserSvc;
 use crate::user::{
     user_service_server::UserService,
@@ -43,7 +43,7 @@ impl UserController {
     /// * `Result<(), AppError>` - 검증 결과
     fn validate_login_request(&self, req: &LoginRequest) -> Result<(), AppError> {
         // 로그인 타입 검증
-        let valid_login_types = vec!["google", "apple", "guest"];
+        let valid_login_types = ["google", "apple", "guest"];
         if !valid_login_types.contains(&req.login_type.as_str()) {
             return Err(AppError::InvalidLoginType(req.login_type.clone()));
         }
@@ -63,7 +63,7 @@ impl UserController {
     /// * `Result<(), AppError>` - 검증 결과
     fn validate_register_request(&self, req: &RegisterRequest) -> Result<(), AppError> {
         // 로그인 타입 검증
-        let valid_login_types = vec!["google", "apple", "guest"];
+        let valid_login_types = ["google", "apple", "guest"];
         if !valid_login_types.contains(&req.login_type.as_str()) {
             return Err(AppError::InvalidLoginType(req.login_type.clone()));
         }
@@ -108,7 +108,7 @@ impl UserService for UserController {
             .login_user(r.login_type, r.login_token)
             .await
             .map_err(|e| {
-                let app_error = AppError::InternalError(format!("로그인 실패: {}", e));
+                let app_error = AppError::InternalError(format!("로그인 실패: {e}"));
                 app_error.to_status()
             })?;
         
@@ -151,7 +151,7 @@ impl UserService for UserController {
             .register_user(r.login_type, r.login_token, r.nick_name)
             .await
             .map_err(|e| {
-                let app_error = AppError::InternalError(format!("회원가입 실패: {}", e));
+                let app_error = AppError::InternalError(format!("회원가입 실패: {e}"));
                 app_error.to_status()
             })?;
         

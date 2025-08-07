@@ -73,17 +73,24 @@ cargo test
 # Run integration tests for gRPC server
 cargo test --test integration_test
 
-# Run Redis tests
-cargo test -p shared
-cargo test -p gamecenter
+# Run specific test modules
+cargo test -p shared               # Redis tests
+cargo test -p gamecenter          # Game center tests  
+cargo test --lib --test test_interceptor -- --nocapture  # gRPC interceptor tests with output
+
+# Run individual test files
+cargo test redis_test -p shared
+cargo test tests -p gamecenter
 ```
 
 ## Key Configuration
 
 - Environment variables are loaded from `.env` file in project root
-- gRPC server port configuration via `grpc_host` and `grpc_port`
-- Redis connection via `redis_host` and `redis_port`
-- Game center includes automatic Redis server management
+- gRPC server port configuration via `grpc_host` and `grpc_port` (default: 127.0.0.1:50051)
+- Redis connection via `redis_host` and `redis_port` (default: 127.0.0.1:6379)
+- TCP/UDP server configuration via `tcp_host:tcp_port` and `udp_host:udp_port`
+- JWT authentication via `JWT_SECRET_KEY` and `JWT_ALGORITHM` (default: HS256)
+- Game center includes automatic Redis server lifecycle management
 
 ## Protocol Buffers
 
@@ -106,5 +113,17 @@ The shared library provides comprehensive Redis helpers:
 - The project uses workspace dependencies defined in root `Cargo.toml`
 - All components share common dependencies (tokio, redis, anyhow, etc.)
 - Extensive logging with tracing and tracing-subscriber
-- Game center handles Redis server lifecycle automatically
+- Game center handles Redis server lifecycle automatically (checks if Redis is running, starts if needed)
 - Environment configuration supports both `.env` files and environment variables
+- gRPC server includes JWT-based authentication with optional/conditional auth modes
+- Error management system with structured error types and severity levels
+- Build script (`build.rs`) auto-generates Rust code from Protocol Buffer definitions
+
+## Authentication System
+
+The gRPC server provides three authentication modes:
+- **Required Auth** (`with_auth`): JWT token mandatory
+- **Optional Auth** (`with_optional_auth`): Token validated if present
+- **Conditional Auth** (`with_conditional_auth`): Auth based on endpoint type
+
+JWT tokens use Bearer format: `Authorization: Bearer <token>`

@@ -19,13 +19,13 @@ pub fn test_key_types() {
     
     println!("생성된 키들:");
     info!("생성된 키들:");
-    println!("  user: {}", user_key);
+    println!("  user: {user_key}");
     info!("  user: {}", user_key);
-    println!("  room_info: {}", room_info_key);
+    println!("  room_info: {room_info_key}");
     info!("  room_info: {}", room_info_key);
-    println!("  room_user_list: {}", room_user_list_key);
+    println!("  room_user_list: {room_user_list_key}");
     info!("  room_user_list: {}", room_user_list_key);
-    println!("  room_list_by_time: {}", room_list_by_time_key);
+    println!("  room_list_by_time: {room_list_by_time_key}");
     info!("  room_list_by_time: {}", room_list_by_time_key);
     
     println!("✅ 키 타입 테스트 통과");
@@ -61,7 +61,7 @@ pub async fn test_redis_connection(redis_config: &RedisConfig) -> Result<()> {
         .await
         .context("Redis GET 실패")?;
     
-    println!("✅ Redis에서 데이터 조회 성공: {}", result);
+    println!("✅ Redis에서 데이터 조회 성공: {result}");
     
     // 테스트 데이터 삭제
     let _: () = redis::cmd("DEL")
@@ -107,12 +107,12 @@ pub async fn test_hash_helper(redis_config: &RedisConfig) -> Result<()> {
     
     // Hash에 데이터 저장
     let key = helper.set_hash_field(user_id, "user_data", &user_data).await?;
-    println!("✅ Hash에 데이터 저장 완료: {}", key);
+    println!("✅ Hash에 데이터 저장 완료: {key}");
     
     // Hash에서 데이터 가져오기
     let retrieved_data = helper.get_hash_field::<UserData>(user_id, "user_data").await?;
     if let Some(data) = retrieved_data {
-        println!("✅ Hash에서 데이터 조회 성공: {:?}", data);
+        println!("✅ Hash에서 데이터 조회 성공: {data:?}");
     } else {
         println!("❌ Hash에서 데이터를 찾을 수 없습니다");
     }

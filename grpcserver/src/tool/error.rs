@@ -4,7 +4,7 @@
 //! 비즈니스 로직 에러를 gRPC Status로 변환하고, 로깅과 모니터링을 지원합니다.
 
 use thiserror::Error;
-use tonic::{Status, Code};
+use tonic::Status;
 use tracing::{error, warn, info};
 
 /// 공통 애플리케이션 에러 정의
@@ -167,31 +167,31 @@ impl From<AppError> for Status {
         match e {
             // 인증 관련
             AppError::AuthError(msg) => Status::unauthenticated(msg),
-            AppError::TokenExpired(msg) => Status::unauthenticated(format!("Token expired: {}", msg)),
+            AppError::TokenExpired(msg) => Status::unauthenticated(format!("Token expired: {msg}")),
             AppError::PermissionDenied(msg) => Status::permission_denied(msg),
             
             // 리소스 없음
-            AppError::UserNotFound(msg) => Status::not_found(format!("User not found: {}", msg)),
-            AppError::RoomNotFound(msg) => Status::not_found(format!("Room not found: {}", msg)),
+            AppError::UserNotFound(msg) => Status::not_found(format!("User not found: {msg}")),
+            AppError::RoomNotFound(msg) => Status::not_found(format!("Room not found: {msg}")),
             
             // 비즈니스 로직 오류
-            AppError::NicknameExists(msg) => Status::already_exists(format!("Nickname exists: {}", msg)),
-            AppError::RoomFull(msg) => Status::resource_exhausted(format!("Room full: {}", msg)),
-            AppError::InvalidLoginType(msg) => Status::invalid_argument(format!("Invalid login type: {}", msg)),
+            AppError::NicknameExists(msg) => Status::already_exists(format!("Nickname exists: {msg}")),
+            AppError::RoomFull(msg) => Status::resource_exhausted(format!("Room full: {msg}")),
+            AppError::InvalidLoginType(msg) => Status::invalid_argument(format!("Invalid login type: {msg}")),
             
             // 입력값 오류
             AppError::InvalidInput(msg) => Status::invalid_argument(msg),
-            AppError::MissingField(msg) => Status::invalid_argument(format!("Missing field: {}", msg)),
-            AppError::InvalidFormat(msg) => Status::invalid_argument(format!("Invalid format: {}", msg)),
-            AppError::RoomNameTooLong(msg) => Status::invalid_argument(format!("Room name too long: {}", msg)),
-            AppError::InvalidMaxPlayers(msg) => Status::invalid_argument(format!("Invalid max players: {}", msg)),
+            AppError::MissingField(msg) => Status::invalid_argument(format!("Missing field: {msg}")),
+            AppError::InvalidFormat(msg) => Status::invalid_argument(format!("Invalid format: {msg}")),
+            AppError::RoomNameTooLong(msg) => Status::invalid_argument(format!("Room name too long: {msg}")),
+            AppError::InvalidMaxPlayers(msg) => Status::invalid_argument(format!("Invalid max players: {msg}")),
             
             // 시스템 오류
-            AppError::DatabaseConnection(msg) => Status::unavailable(format!("Database connection failed: {}", msg)),
-            AppError::DatabaseQuery(msg) => Status::internal(format!("Database query failed: {}", msg)),
-            AppError::TransactionFailed(msg) => Status::internal(format!("Transaction failed: {}", msg)),
-            AppError::ExternalApiError(msg) => Status::unavailable(format!("External API error: {}", msg)),
-            AppError::RedisConnection(msg) => Status::unavailable(format!("Redis connection failed: {}", msg)),
+            AppError::DatabaseConnection(msg) => Status::unavailable(format!("Database connection failed: {msg}")),
+            AppError::DatabaseQuery(msg) => Status::internal(format!("Database query failed: {msg}")),
+            AppError::TransactionFailed(msg) => Status::internal(format!("Transaction failed: {msg}")),
+            AppError::ExternalApiError(msg) => Status::unavailable(format!("External API error: {msg}")),
+            AppError::RedisConnection(msg) => Status::unavailable(format!("Redis connection failed: {msg}")),
             AppError::InternalError(msg) => Status::internal(msg),
             AppError::ServiceUnavailable(msg) => Status::unavailable(msg),
             AppError::Timeout(msg) => Status::deadline_exceeded(msg),
@@ -214,7 +214,7 @@ pub mod helpers {
     /// * `Result<T, AppError>` - 변환된 결과
     pub fn map_anyhow_error<T>(result: Result<T>, context: &str) -> Result<T, AppError> {
         result.map_err(|e| {
-            let app_error = AppError::InternalError(format!("{}: {}", context, e));
+            let app_error = AppError::InternalError(format!("{context}: {e}"));
             app_error.log(context);
             app_error
         })
@@ -250,7 +250,7 @@ pub mod helpers {
         }
         
         if value.len() > max_length {
-            return Err(AppError::InvalidInput(format!("{} too long (max: {})", field_name, max_length)));
+            return Err(AppError::InvalidInput(format!("{field_name} too long (max: {max_length})")));
         }
         
         Ok(value)
@@ -268,7 +268,7 @@ pub mod helpers {
     /// * `Result<i32, AppError>` - 검증 결과
     pub fn validate_range(value: i32, field_name: &str, min: i32, max: i32) -> Result<i32, AppError> {
         if value < min || value > max {
-            return Err(AppError::InvalidInput(format!("{} out of range ({}-{})", field_name, min, max)));
+            return Err(AppError::InvalidInput(format!("{field_name} out of range ({min}-{max})")));
         }
         
         Ok(value)

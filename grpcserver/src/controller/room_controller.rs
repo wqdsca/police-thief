@@ -4,7 +4,7 @@
 //! RoomService trait을 구현하여 gRPC 서버에서 방 관련 요청을 처리합니다.
 
 use tonic::{Request, Response, Status};
-use tracing::{info, error};
+use tracing::info;
 use crate::service::room_service::RoomService as RoomSvc;
 use crate::room::{
     room_service_server::RoomService,
@@ -74,7 +74,7 @@ impl RoomController {
     /// # Returns
     /// * `Result<Option<i32>, Status>` - 검증된 사용자 ID 또는 None
     fn verify_jwt_token(&self, req: &Request<()>) -> Result<Option<i32>, Status> {
-        self.token_service.with_optional_auth(req, |user_id| Ok(user_id))
+        self.token_service.with_optional_auth(req, Ok)
     }
 }
 
@@ -117,7 +117,7 @@ impl RoomService for RoomController {
             .make_room(req_inner.user_id, req_inner.nick_name, req_inner.room_name, req_inner.max_player_num)
             .await
             .map_err(|e| {
-                let app_error = AppError::InternalError(format!("방 생성 실패: {}", e));
+                let app_error = AppError::InternalError(format!("방 생성 실패: {e}"));
                 app_error.to_status()
             })?;
         
@@ -157,7 +157,7 @@ impl RoomService for RoomController {
             .get_room_list(last_id)
             .await
             .map_err(|e| {
-                let app_error = AppError::InternalError(format!("방 리스트 조회 실패: {}", e));
+                let app_error = AppError::InternalError(format!("방 리스트 조회 실패: {e}"));
                 app_error.to_status()
             })?;
         

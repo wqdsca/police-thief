@@ -50,7 +50,7 @@ impl RedisConfig {
         
         let port = port_str.parse::<u16>().expect("redis_port는 숫자여야 함");
 
-        let client = Client::open(format!("redis://{}:{}", host, port))?;
+        let client = Client::open(format!("redis://{host}:{port}"))?;
         let manager = ConnectionManager::new(client).await?;
         Ok(Self { conn: manager, host, port })
     }

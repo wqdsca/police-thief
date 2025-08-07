@@ -20,7 +20,7 @@ async fn test_grpc_connection() -> Result<(), Box<dyn std::error::Error>> {
     // User 서비스 클라이언트 생성
     let mut user_client = UserServiceClient::new(channel);
     
-    println!("✅ gRPC 서버에 연결되었습니다: {}", server_addr);
+    println!("✅ gRPC 서버에 연결되었습니다: {server_addr}");
     
     // Room 서비스 테스트
     test_room_service(&mut room_client).await?;
@@ -49,7 +49,7 @@ async fn test_room_service(
             println!("✅ 방 생성 성공: room_id = {}", response.get_ref().room_id);
         }
         Err(e) => {
-            println!("❌ 방 생성 실패: {}", e);
+            println!("❌ 방 생성 실패: {e}");
         }
     }
     
@@ -63,7 +63,7 @@ async fn test_room_service(
             println!("✅ 방 리스트 조회 성공: {}개 방", response.get_ref().rooms.len());
         }
         Err(e) => {
-            println!("❌ 방 리스트 조회 실패: {}", e);
+            println!("❌ 방 리스트 조회 실패: {e}");
         }
     }
     
@@ -88,7 +88,7 @@ async fn test_user_service(
                 user_info.user_id, user_info.nick_name);
         }
         Err(e) => {
-            println!("❌ 로그인 실패: {}", e);
+            println!("❌ 로그인 실패: {e}");
         }
     }
     
@@ -104,7 +104,7 @@ async fn test_user_service(
             println!("✅ 회원가입 성공");
         }
         Err(e) => {
-            println!("❌ 회원가입 실패: {}", e);
+            println!("❌ 회원가입 실패: {e}");
         }
     }
     

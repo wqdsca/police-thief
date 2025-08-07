@@ -42,7 +42,7 @@ async fn main() -> Result<()> {
     // grpc_host, grpc_port 읽기
     let host = env::var("grpc_host").expect("grpc_host 환경변수가 설정되지 않았습니다.");
     let port = env::var("grpc_port").expect("grpc_port 환경변수가 설정되지 않았습니다.");
-    let addr: SocketAddr = format!("{}:{}", host, port).parse()?;
+    let addr: SocketAddr = format!("{host}:{port}").parse()?;
 
     info!("▶ gRPC 서버 실행: {}", addr);
 

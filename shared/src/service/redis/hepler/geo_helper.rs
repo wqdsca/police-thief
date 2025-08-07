@@ -11,12 +11,11 @@ pub struct GeoHelper {
     conn: RedisConfig,
     key: KeyType,
     ttl: Option<u32>,
-    limit: Option<u32>,
 }
 
 impl GeoHelper {
-    pub fn new(conn: RedisConfig, key: KeyType, ttl: Option<u32>, limit: Option<u32>) -> Self {
-        Self { conn, key, ttl, limit }
+    pub fn new(conn: RedisConfig, key: KeyType, ttl: Option<u32>, _limit: Option<u32>) -> Self {
+        Self { conn, key, ttl }
     }
 
     /// GEOADD(위치 정보) + (옵션)EXPIRE
@@ -51,7 +50,7 @@ impl GeoHelper {
                     .await
                     .context("GeoHelper: PIPELINE(GEOADD+EXPIRE) 실패")?;
 
-                let first = resp.get(0).ok_or_else(|| anyhow!("파이프라인 응답 비어있음"))?;
+                let first = resp.first().ok_or_else(|| anyhow!("파이프라인 응답 비어있음"))?;
                 let added: u64 = FromRedisValue::from_redis_value(first)
                     .context("GEOADD 응답 파싱 실패")?;
                 Ok(added)

@@ -104,13 +104,13 @@ async fn test_hash_helper() -> Result<()> {
     let retrieved_email: Option<String> = hash.get_hash_field(100, "email").await?;
     let retrieved_age: Option<u32> = hash.get_hash_field(100, "age").await?;
 
-    println!("Debug - retrieved_name: {:?}", retrieved_name);
-    println!("Debug - retrieved_email: {:?}", retrieved_email);
-    println!("Debug - retrieved_age: {:?}", retrieved_age);
+    println!("Debug - retrieved_name: {retrieved_name:?}");
+    println!("Debug - retrieved_email: {retrieved_email:?}");
+    println!("Debug - retrieved_age: {retrieved_age:?}");
 
     // 모든 필드 조회
     let all_fields = hash.get_all_hash_fields(100).await?;
-    println!("Debug - all_fields: {:?}", all_fields);
+    println!("Debug - all_fields: {all_fields:?}");
     assert!(all_fields.contains_key("name"));
     assert!(all_fields.contains_key("email"));
     assert!(all_fields.contains_key("age"));

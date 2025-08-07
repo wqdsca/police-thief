@@ -190,12 +190,10 @@ impl TokenService {
     /// # Returns
     /// * `bool` - 공개 엔드포인트 여부
     pub fn is_public_endpoint(path: &str) -> bool {
-        let public_paths = vec![
-            "/user.UserService/LoginUser",
-            "/user.UserService/RegisterUser",
-        ];
+        let public_paths = ["/user.UserService/LoginUser",
+            "/user.UserService/RegisterUser"];
         
-        public_paths.iter().any(|&public_path| path == public_path)
+        public_paths.contains(&path)
     }
 
     /// 조건부 인증 함수 - 공개 엔드포인트는 통과, 보호된 엔드포인트는 인증 필요

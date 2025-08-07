@@ -20,11 +20,11 @@ pub enum KeyType {
 impl KeyType {
     pub fn get_key(&self, id: &u16) -> String {
         match self {
-            KeyType::User => format!("user:{}", id),
-            KeyType::RoomInfo => format!("room:info:{}", id),
-            KeyType::RoomUserList => format!("room:users:{}", id),
-            KeyType::RoomListByTime => format!("room:list:time:{}", id),
-            KeyType::Custom(prefix) => format!("{}:{}", prefix, id),
+            KeyType::User => format!("user:{id}"),
+            KeyType::RoomInfo => format!("room:info:{id}"),
+            KeyType::RoomUserList => format!("room:users:{id}"),
+            KeyType::RoomListByTime => format!("room:list:time:{id}"),
+            KeyType::Custom(prefix) => format!("{prefix}:{id}"),
         }
     }
 
@@ -34,7 +34,7 @@ impl KeyType {
             KeyType::RoomInfo => "room:info:index".to_string(),
             KeyType::RoomUserList => "room:users:index".to_string(),
             KeyType::RoomListByTime => "room:list:time:index".to_string(),
-            KeyType::Custom(prefix) => format!("{}:index", prefix),
+            KeyType::Custom(prefix) => format!("{prefix}:index"),
         }
     }
 }

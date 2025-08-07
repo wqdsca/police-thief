@@ -11,12 +11,11 @@ pub struct SetHelper {
     conn: RedisConfig,
     key: KeyType,
     ttl: Option<u32>,
-    limit: Option<u32>,
 }
 
 impl SetHelper {
-    pub fn new(conn: RedisConfig, key: KeyType, ttl: Option<u32>, limit: Option<u32>) -> Self {
-        Self { conn, key, ttl, limit }
+    pub fn new(conn: RedisConfig, key: KeyType, ttl: Option<u32>, _limit: Option<u32>) -> Self {
+        Self { conn, key, ttl }
     }
 
     /// SADD(JSON member) + (옵션)EXPIRE
@@ -44,7 +43,7 @@ impl SetHelper {
                     .await
                     .context("SetHelper: PIPELINE(SADD+EXPIRE) 실패")?;
 
-                let first = resp.get(0).ok_or_else(|| anyhow!("파이프라인 응답 비어있음"))?;
+                let first = resp.first().ok_or_else(|| anyhow!("파이프라인 응답 비어있음"))?;
                 let added: u64 = FromRedisValue::from_redis_value(first)
                     .context("SADD 응답 파싱 실패")?;
                 Ok(added)

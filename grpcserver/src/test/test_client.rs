@@ -29,7 +29,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 user_info.user_id, user_info.nick_name);
         }
         Err(e) => {
-            println!("로그인 실패: {}", e);
+            println!("로그인 실패: {e}");
         }
     }
 
@@ -47,7 +47,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("방 생성 성공: room_id = {}", response.get_ref().room_id);
         }
         Err(e) => {
-            println!("방 생성 실패: {}", e);
+            println!("방 생성 실패: {e}");
         }
     }
 
@@ -62,7 +62,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("방 리스트 조회 성공: {}개 방", response.get_ref().rooms.len());
         }
         Err(e) => {
-            println!("방 리스트 조회 실패: {}", e);
+            println!("방 리스트 조회 실패: {e}");
         }
     }
 
@@ -79,7 +79,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("회원가입 성공");
         }
         Err(e) => {
-            println!("회원가입 실패: {}", e);
+            println!("회원가입 실패: {e}");
         }
     }
 

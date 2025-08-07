@@ -12,7 +12,7 @@ use crate::user::{
     user_service_client::UserServiceClient,
     LoginRequest, RegisterRequest,
 };
-use crate::tool::error::{AppError, ErrorTracker, ErrorStats};
+use crate::tool::error::{AppError, ErrorTracker};
 
 /// gRPC 연결 테스트
 /// 
@@ -59,7 +59,7 @@ async fn test_room_service(channel: Channel) {
             println!("✅ 방 생성 성공: room_id={}", response.room_id);
         }
         Err(e) => {
-            println!("❌ 방 생성 실패: {}", e);
+            println!("❌ 방 생성 실패: {e}");
         }
     }
     
@@ -78,7 +78,7 @@ async fn test_room_service(channel: Channel) {
             println!("✅ 방 생성 성공: room_id={}", response.room_id);
         }
         Err(e) => {
-            println!("❌ 방 생성 실패 (예상됨): {}", e);
+            println!("❌ 방 생성 실패 (예상됨): {e}");
         }
     }
     
@@ -94,7 +94,7 @@ async fn test_room_service(channel: Channel) {
             println!("✅ 방 리스트 조회 성공: {}개 방", response.rooms.len());
         }
         Err(e) => {
-            println!("❌ 방 리스트 조회 실패: {}", e);
+            println!("❌ 방 리스트 조회 실패: {e}");
         }
     }
     
@@ -110,7 +110,7 @@ async fn test_room_service(channel: Channel) {
             println!("✅ 방 리스트 조회 성공: {}개 방", response.rooms.len());
         }
         Err(e) => {
-            println!("❌ 방 리스트 조회 실패 (예상됨): {}", e);
+            println!("❌ 방 리스트 조회 실패 (예상됨): {e}");
         }
     }
 }
@@ -134,7 +134,7 @@ async fn test_user_service(channel: Channel) {
             println!("✅ 로그인 성공: user_id={}, nick={}", response.user_id, response.nick_name);
         }
         Err(e) => {
-            println!("❌ 로그인 실패: {}", e);
+            println!("❌ 로그인 실패: {e}");
         }
     }
     
@@ -151,7 +151,7 @@ async fn test_user_service(channel: Channel) {
             println!("✅ 로그인 성공: user_id={}, nick={}", response.user_id, response.nick_name);
         }
         Err(e) => {
-            println!("❌ 로그인 실패 (예상됨): {}", e);
+            println!("❌ 로그인 실패 (예상됨): {e}");
         }
     }
     
@@ -168,7 +168,7 @@ async fn test_user_service(channel: Channel) {
             println!("✅ 로그인 성공: user_id={}, nick={}", response.user_id, response.nick_name);
         }
         Err(e) => {
-            println!("❌ 로그인 실패 (예상됨): {}", e);
+            println!("❌ 로그인 실패 (예상됨): {e}");
         }
     }
     
@@ -186,7 +186,7 @@ async fn test_user_service(channel: Channel) {
             println!("✅ 회원가입 성공: success={}", response.success);
         }
         Err(e) => {
-            println!("❌ 회원가입 실패: {}", e);
+            println!("❌ 회원가입 실패: {e}");
         }
     }
     
@@ -204,7 +204,7 @@ async fn test_user_service(channel: Channel) {
             println!("✅ 회원가입 성공: success={}", response.success);
         }
         Err(e) => {
-            println!("❌ 회원가입 실패 (예상됨): {}", e);
+            println!("❌ 회원가입 실패 (예상됨): {e}");
         }
     }
     
@@ -222,7 +222,7 @@ async fn test_user_service(channel: Channel) {
             println!("✅ 회원가입 성공: success={}", response.success);
         }
         Err(e) => {
-            println!("❌ 회원가입 실패 (예상됨): {}", e);
+            println!("❌ 회원가입 실패 (예상됨): {e}");
         }
     }
 }
@@ -271,28 +271,28 @@ fn test_error_helpers() {
     
     // 문자열 검증 테스트
     match helpers::validate_string("test".to_string(), "test_field", 10) {
-        Ok(s) => println!("✅ 문자열 검증 성공: {}", s),
-        Err(e) => println!("❌ 문자열 검증 실패: {}", e),
+        Ok(s) => println!("✅ 문자열 검증 성공: {s}"),
+        Err(e) => println!("❌ 문자열 검증 실패: {e}"),
     }
     
     match helpers::validate_string("".to_string(), "empty_field", 10) {
-        Ok(s) => println!("✅ 빈 문자열 검증 성공: {}", s),
-        Err(e) => println!("❌ 빈 문자열 검증 실패 (예상됨): {}", e),
+        Ok(s) => println!("✅ 빈 문자열 검증 성공: {s}"),
+        Err(e) => println!("❌ 빈 문자열 검증 실패 (예상됨): {e}"),
     }
     
     match helpers::validate_string("very_long_string".to_string(), "long_field", 5) {
-        Ok(s) => println!("✅ 긴 문자열 검증 성공: {}", s),
-        Err(e) => println!("❌ 긴 문자열 검증 실패 (예상됨): {}", e),
+        Ok(s) => println!("✅ 긴 문자열 검증 성공: {s}"),
+        Err(e) => println!("❌ 긴 문자열 검증 실패 (예상됨): {e}"),
     }
     
     // 범위 검증 테스트
     match helpers::validate_range(5, "test_range", 1, 10) {
-        Ok(n) => println!("✅ 범위 검증 성공: {}", n),
-        Err(e) => println!("❌ 범위 검증 실패: {}", e),
+        Ok(n) => println!("✅ 범위 검증 성공: {n}"),
+        Err(e) => println!("❌ 범위 검증 실패: {e}"),
     }
     
     match helpers::validate_range(15, "test_range", 1, 10) {
-        Ok(n) => println!("✅ 범위 검증 성공: {}", n),
-        Err(e) => println!("❌ 범위 검증 실패 (예상됨): {}", e),
+        Ok(n) => println!("✅ 범위 검증 성공: {n}"),
+        Err(e) => println!("❌ 범위 검증 실패 (예상됨): {e}"),
     }
 } 

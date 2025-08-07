@@ -3,13 +3,14 @@
 //! 방 생성 및 조회 기능을 담당하는 비즈니스 로직입니다.
 //! 실제 데이터베이스 연동 및 방 관련 비즈니스 규칙을 처리합니다.
 
-use tracing::{info, warn};
-use crate::tool::error::{AppError, helpers};
+use tracing::info;
+use crate::tool::error::AppError;
 
 /// Room Service 비즈니스 로직
 /// 
 /// 방 생성 및 조회 기능을 처리하는 서비스입니다.
 /// 현재는 더미 데이터를 반환하지만, 향후 실제 데이터베이스 연동이 추가될 예정입니다.
+#[derive(Default)]
 pub struct RoomService;
 
 impl RoomService {
@@ -37,7 +38,7 @@ impl RoomService {
     pub async fn make_room(
         &self,
         user_id: i32,
-        nick_name: String,
+        _nick_name: String,
         room_name: String,
         max_player_num: i32,
     ) -> Result<i32, AppError> {

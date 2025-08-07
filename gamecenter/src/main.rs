@@ -1,7 +1,6 @@
 use shared::config::redis_config::RedisConfig;
 use anyhow::{Context, Result};
 use tracing::{info, error};
-use tracing_subscriber;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::signal;
@@ -16,14 +15,20 @@ pub struct GameCenterServer {
     pub redis_process: Option<tokio::process::Child>,
 }
 
-impl GameCenterServer {
-    /// 새로운 게임센터 서버 생성
-    pub fn new() -> Self {
+impl Default for GameCenterServer {
+    fn default() -> Self {
         Self {
             is_running: Arc::new(AtomicBool::new(false)),
             redis_config: None,
             redis_process: None,
         }
+    }
+}
+
+impl GameCenterServer {
+    /// 새로운 게임센터 서버 생성
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Redis 서버 시작

@@ -5,7 +5,7 @@
 
 use tonic::{Request, Status, service::Interceptor};
 use crate::tool::token::TokenService;
-use tracing::{info, warn, error};
+use tracing::{info, error};
 
 /// JWT 토큰 검증 인터셉터
 /// 

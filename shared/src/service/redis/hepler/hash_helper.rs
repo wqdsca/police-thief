@@ -11,12 +11,11 @@ pub struct HashHelper {
     conn: RedisConfig,
     key: KeyType,
     ttl: Option<u32>,
-    limit: Option<u32>,
 }
 
 impl HashHelper {
-    pub fn new(conn: RedisConfig, key: KeyType, ttl: Option<u32>, limit: Option<u32>) -> Self {
-        Self { conn, key, ttl, limit }
+    pub fn new(conn: RedisConfig, key: KeyType, ttl: Option<u32>, _limit: Option<u32>) -> Self {
+        Self { conn, key, ttl }
     }
 
     /// HSET field <- JSON(value). ttl이 설정되어 있으면 HSET+EXPIRE 파이프라인.

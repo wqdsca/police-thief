@@ -3,13 +3,14 @@
 //! 사용자 인증 및 회원가입 기능을 담당하는 비즈니스 로직입니다.
 //! 실제 데이터베이스 연동 및 사용자 관련 비즈니스 규칙을 처리합니다.
 
-use tracing::{info, warn};
-use crate::tool::error::{AppError, helpers};
+use tracing::info;
+use crate::tool::error::AppError;
 
 /// User Service 비즈니스 로직
 /// 
 /// 사용자 인증 및 회원가입 기능을 처리하는 서비스입니다.
 /// 현재는 더미 데이터를 반환하지만, 향후 실제 데이터베이스 연동이 추가될 예정입니다.
+#[derive(Default)]
 pub struct UserService;
 
 impl UserService {
@@ -80,7 +81,7 @@ impl UserService {
     pub async fn register_user(
         &self,
         login_type: String,
-        login_token: String,
+        _login_token: String,
         nick_name: String,
     ) -> Result<(), AppError> {
         info!("회원가입 서비스 호출: login_type={}, nick={}", login_type, nick_name);
