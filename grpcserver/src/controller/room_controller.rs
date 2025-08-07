@@ -12,7 +12,7 @@ use crate::room::{
     GetRoomListRequest, GetRoomListResponse,
 };
 use crate::tool::error::{AppError, helpers};
-use crate::tool::token::TokenService;
+use shared::service::TokenService;
 
 /// Room Service gRPC 컨트롤러
 /// 

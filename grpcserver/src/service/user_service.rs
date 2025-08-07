@@ -105,4 +105,17 @@ impl UserService {
         info!("회원가입 완료");
         Ok(())
     }
+
+    // 실제 로그인 로직 구현
+    // 1. 회원가입 유무 확인
+    // 2. 회원가입 여부에 따라 로그인 처리 bool 반환
+    // 3. 회원가입이 되어있으면 로그인 처리 후 user_id 반환
+    // fn social_login(&self, login_type: String, login_token:String) -> Result<(i32, bool), AppError> {
+        
+    //     // 1. 토큰 검증
+    //     // 2. 사용자 정보 조회
+    //     // 3. 세션 생성
+    //     // 4. 액세스 토큰 발급
+        
+    // }
 }

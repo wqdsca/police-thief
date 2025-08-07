@@ -4,7 +4,7 @@
 //! JWT 토큰 검증, 로깅, 에러 처리 등을 담당합니다.
 
 use tonic::{Request, Status, service::Interceptor};
-use crate::tool::token::TokenService;
+use shared::service::TokenService;
 use tracing::{info, error};
 
 /// JWT 토큰 검증 인터셉터

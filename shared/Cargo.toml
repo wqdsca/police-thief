@@ -12,3 +12,6 @@ serde_json.workspace = true
 rand.workspace = true
 dotenv.workspace = true
 tracing.workspace = true 
+jsonwebtoken.workspace = true
+tonic.workspace = true
+chrono.workspace = true

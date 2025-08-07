@@ -3,7 +3,8 @@ resolver = "3"
 members = [
     "shared",
     "grpcserver", 
-    "gamecenter"
+    "gamecenter",
+    "tcpserver"
 ]
 
 # 공통 의존성 버전 관리를 위한 workspace-wide dependencies
