@@ -74,7 +74,7 @@ async fn test_send_to_nonexistent_client() {
     let message = GameMessage::HeartBeat;
     
     // 존재하지 않는 클라이언트에게 메시지 전송
-    let result = service.send_to_client(999, &message).await;
+    let result = service.send_to_user(999, &message).await;
     assert!(result.is_err(), "존재하지 않는 클라이언트에게 전송은 실패해야 함");
     
     println!("✅ 존재하지 않는 클라이언트 전송 테스트 통과");

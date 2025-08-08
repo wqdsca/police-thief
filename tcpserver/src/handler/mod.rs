@@ -1,12 +1,15 @@
-//! TCP 서버 핸들러 레이어
+
+//! 핸들러 모듈
 //! 
-//! 요청 처리, 응답 생성, 비즈니스 로직 실행을 담당합니다.
+//! 다양한 요청을 처리하는 핸들러들을 정의합니다.
+//! 순환 의존성을 피하기 위해 핸들러 간 의존성을 최소화했습니다.
 
-// 복잡한 핸들러들 (현재 컴파일 오류로 비활성화)
-// pub mod message_handler;
-// pub mod connection_handler;
-// pub mod game_handler;
+pub mod message_handler;
+pub mod connection_handler;
+pub mod room_handler;
+pub mod friend_handler;
 
-// pub use message_handler::*;
-// pub use connection_handler::*;
-// pub use game_handler::*;
+pub use message_handler::*;
+pub use connection_handler::*;
+pub use room_handler::*;
+pub use friend_handler::*;

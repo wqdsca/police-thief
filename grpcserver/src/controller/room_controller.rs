@@ -11,8 +11,11 @@ use crate::room::{
     MakeRoomRequest, MakeRoomResponse,
     GetRoomListRequest, GetRoomListResponse,
 };
-use crate::tool::error::{AppError, helpers};
+use shared::tool::error::{AppError, helpers};
 use shared::service::TokenService;
+use shared::model::RoomInfo;
+use shared::tool::current_time::CurrentTime;
+use shared::tool::get_id::RoomIdGenerator;
 
 /// Room Service gRPC 컨트롤러
 /// 
@@ -112,9 +115,22 @@ impl RoomService for RoomController {
         }
         
         // 비즈니스 로직 호출
+        let mut room_id_generator = RoomIdGenerator::from_env().await.map_err(|e| {
+            let app_error = AppError::InternalError(format!("방 ID 생성기 초기화 실패: {e}"));
+            app_error.to_status()
+        })?;
         let room_id = self
             .svc
-            .make_room(req_inner.user_id, req_inner.nick_name, req_inner.room_name, req_inner.max_player_num)
+            .make_room(RoomInfo {
+                room_id: room_id_generator.get_room_id().await.map_err(|e| {
+                    let app_error = AppError::InternalError(format!("방 ID 생성 실패: {e}"));
+                    app_error.to_status()
+                })?, 
+                room_name: req_inner.room_name,
+                max_player_num: req_inner.max_player_num as u16,
+                current_player_num: 1,
+                create_at: CurrentTime::new().current_time,
+            })
             .await
             .map_err(|e| {
                 let app_error = AppError::InternalError(format!("방 생성 실패: {e}"));
@@ -162,6 +178,21 @@ impl RoomService for RoomController {
             })?;
         
         info!("방 리스트 조회 성공: {}개 방", rooms.len());
-        Ok(Response::new(GetRoomListResponse { rooms }))
+        if rooms.len() == 0 {
+            return Ok(Response::new(GetRoomListResponse { rooms: vec![] }));
+        }
+        
+        // shared::model::RoomInfo를 room::RoomInfo로 변환 (optimized allocation)
+        let mut proto_rooms = Vec::with_capacity(rooms.len());
+        for room in rooms {
+            proto_rooms.push(crate::room::RoomInfo {
+                room_id: room.room_id as i32,
+                room_name: room.room_name,
+                current_player_num: room.current_player_num as i32,
+                max_player_num: room.max_player_num as i32,
+            });
+        }
+        
+        Ok(Response::new(GetRoomListResponse { rooms: proto_rooms }))
     }
 }

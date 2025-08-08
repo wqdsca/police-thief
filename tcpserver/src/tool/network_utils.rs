@@ -15,6 +15,23 @@ pub struct NetworkUtils;
 
 impl NetworkUtils {
     /// IP 주소 문자열 파싱
+    /// 
+    /// 문자열을 IpAddr로 파싱합니다. IPv4와 IPv6를 모두 지원합니다.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `ip_str` - 파싱할 IP 주소 문자열
+    /// 
+    /// # Returns
+    /// 
+    /// * `Result<IpAddr>` - 성공 시 IpAddr, 실패 시 에러
+    /// 
+    /// # Examples
+    /// 
+    /// ```rust
+    /// let ip = NetworkUtils::parse_ip("192.168.1.1").unwrap();
+    /// let ipv6 = NetworkUtils::parse_ip("::1").unwrap();
+    /// ```
     pub fn parse_ip(ip_str: &str) -> Result<IpAddr> {
         ip_str.parse::<IpAddr>()
             .map_err(|e| anyhow!("IP 주소 파싱 실패: {} ({})", ip_str, e))
@@ -140,7 +157,7 @@ impl NetworkUtils {
         
         let avg = measurements.iter().sum::<f64>() / measurements.len() as f64;
         let min = measurements.iter().fold(f64::INFINITY, |a, &b| a.min(b));
-        let max = measurements.iter().fold(0.0, |a, &b| a.max(b));
+        let max = measurements.iter().fold(0.0f64, |a, &b| a.max(b));
         
         Ok(LatencyStats {
             average_ms: avg,

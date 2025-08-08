@@ -26,7 +26,7 @@ pub struct TcpServerConfig {
 impl Default for TcpServerConfig {
     fn default() -> Self {
         Self {
-            bind_address: "127.0.0.1:8080".to_string(),
+            bind_address: "127.0.0.1:4000".to_string(),
             max_connections: 1000,
             heartbeat_interval_secs: 10,
             connection_timeout_secs: 30,

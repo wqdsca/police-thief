@@ -1,7 +1,7 @@
 [package]
 name = "grpcserver"
 version = "0.1.0"
-edition = "2024"  # ← 2015, 2018, 2021 중 하나
+edition = "2021"
 
 [dependencies]
 tonic.workspace = true
@@ -16,6 +16,7 @@ tracing-subscriber.workspace = true
 chrono.workspace = true
 jsonwebtoken.workspace = true
 thiserror.workspace = true
+redis.workspace = true
 
 # Shared 라이브러리 의존성
 shared = { path = "../shared" }
@@ -26,3 +27,7 @@ tonic-build = "0.10"
 [[bin]]
 name = "grpcserver"
 path = "src/main.rs"
+
+[[bin]]
+name = "test_client"
+path = "src/test/test_client.rs"

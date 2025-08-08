@@ -159,8 +159,8 @@ mod tests {
     fn test_extract_u32() {
         let bytes = vec![0x12, 0x34, 0x56, 0x78, 0xab, 0xcd];
         
-        let be_value = DataUtils::extract_u32_be(&bytes, 0).unwrap();
-        let le_value = DataUtils::extract_u32_le(&bytes, 0).unwrap();
+        let be_value = HexUtils::extract_u32_be(&bytes, 0).unwrap();
+        let le_value = HexUtils::extract_u32_le(&bytes, 0).unwrap();
         
         assert_eq!(be_value, 0x12345678);
         assert_eq!(le_value, 0x78563412);

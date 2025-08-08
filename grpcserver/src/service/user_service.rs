@@ -4,7 +4,11 @@
 //! 실제 데이터베이스 연동 및 사용자 관련 비즈니스 규칙을 처리합니다.
 
 use tracing::info;
-use crate::tool::error::AppError;
+use shared::tool::error::AppError;
+use shared::model::UserInfo;
+use shared::service::redis::user_redis_service::{UserRedisService, UserRedisServiceConfig};
+use shared::config::connection_pool::ConnectionPool;
+use shared::service::redis::core::redis_get_key::KeyType;
 
 /// User Service 비즈니스 로직
 /// 
@@ -38,31 +42,39 @@ impl UserService {
         login_type: String,
         login_token: String,
     ) -> Result<(i32, String, String, String, bool), AppError> {
+        let mut user_id = 1;
         info!("로그인 서비스 호출: login_type={}", login_type);
-        
+        let nick_name = "test".to_string();
+        let access_token = "access_token".to_string();
+        let refresh_token = "refresh_token".to_string();
+        let is_register = true;
         // TODO: 실제 인증 로직 구현 필요
         // - 토큰 검증
         // - 사용자 정보 조회
         // - 세션 생성
         // - 액세스 토큰 발급
         
-        // 시뮬레이션: 인증 실패 (테스트용)
-        if login_token.contains("invalid") {
-            return Err(AppError::AuthError("테스트용 인증 실패: 토큰에 'invalid'가 포함됨".to_string()));
+        info!("로그인 완료: nick={}", nick_name);
+        let success_login : bool = self.social_login(login_type, login_token)?;
+        if success_login {
+            user_id = user_id + 1;
         }
-        
-        // 시뮬레이션: 사용자 없음 (테스트용)
-        if login_token.contains("notfound") {
-            return Err(AppError::UserNotFound("테스트용 사용자 없음: 토큰에 'notfound'가 포함됨".to_string()));
-        }
-        
-        let user_id = 123; // 더미 데이터
-        let nick_name = "nick".to_string();
-        let access_token = "access_token".to_string();
-        let refresh_token = "refresh_token".to_string();
-        let is_register = false; // 신규 가입 여부
-        
-        info!("로그인 완료: user_id={}, nick={}", user_id, nick_name);
+        let user_info = UserInfo {
+            user_id,
+            nick_name: nick_name.clone(),
+            tcp_ip: "".to_string(),
+            tcp_port: 0,
+            udp_ip: "".to_string(),
+            udp_port: 0,
+            access_token: access_token.clone(),
+        };
+        let redis_config = ConnectionPool::get_config().await
+            .map_err(|e| AppError::RedisConnection(e.to_string()))?;
+        let user_redis_service = UserRedisService::new(UserRedisServiceConfig {
+            redis_config,
+            key_type: KeyType::User,
+        });
+        user_redis_service.login_success_redis_service(user_id, &user_info).await?;
         Ok((user_id, nick_name, access_token, refresh_token, is_register))
     }
 
@@ -110,7 +122,25 @@ impl UserService {
     // 1. 회원가입 유무 확인
     // 2. 회원가입 여부에 따라 로그인 처리 bool 반환
     // 3. 회원가입이 되어있으면 로그인 처리 후 user_id 반환
-    // fn social_login(&self, login_type: String, login_token:String) -> Result<(i32, bool), AppError> {
+    fn social_login(&self, login_type: String, _login_token:String) -> Result<bool, AppError> {
+        match login_type.as_str() {
+            "google" => {
+                // 구글 로그인 처리
+                Ok(true)
+            }
+            "apple" => {
+                // 애플 로그인 처리
+                Ok(true)
+            }
+            "test" => {
+                // 테스트 아이디 일때 바로 반환하기 
+                Ok(true)
+            }
+            _ => {
+                Err(AppError::InvalidLoginType(login_type))
+            }
+        }
+    }
         
     //     // 1. 토큰 검증
     //     // 2. 사용자 정보 조회

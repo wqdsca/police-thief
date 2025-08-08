@@ -23,11 +23,14 @@ pub struct HeartbeatService {
 }
 
 /// 하트비트 통계
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct HeartbeatStats {
     pub total_heartbeats: u64,
     pub timeout_cleanups: u64,
+    #[serde(skip)]
     pub last_cleanup_time: Option<Instant>,
+    /// 마지막 정리 시간 (Unix timestamp)
+    pub last_cleanup_timestamp: Option<i64>,
     pub average_response_time_ms: f64,
     pub active_connections: u32,
 }
@@ -92,6 +95,7 @@ impl HeartbeatService {
                     if cleanup_count > 0 {
                         stats.timeout_cleanups += cleanup_count as u64;
                         stats.last_cleanup_time = Some(start_time);
+                        stats.last_cleanup_timestamp = Some(chrono::Utc::now().timestamp());
                     }
                     stats.active_connections = current_connections as u32;
                     
@@ -160,6 +164,7 @@ impl HeartbeatService {
             if cleanup_count > 0 {
                 stats.timeout_cleanups += cleanup_count as u64;
                 stats.last_cleanup_time = Some(start_time);
+                stats.last_cleanup_timestamp = Some(chrono::Utc::now().timestamp());
             }
         }
         
@@ -179,7 +184,7 @@ impl HeartbeatService {
             timestamp: SimpleUtils::current_timestamp() 
         };
         
-        if let Err(e) = self.connection_service.send_to_client(client_id, &response).await {
+        if let Err(e) = self.connection_service.send_to_user(client_id, &response).await {
             let tcp_error = TcpServerError::heartbeat_error(Some(client_id), "send_response", &e.to_string());
             ErrorHandler::handle_error(tcp_error.clone(), ErrorSeverity::Error, "HeartbeatService", "handle_heartbeat");
             return Err(anyhow::anyhow!(tcp_error));

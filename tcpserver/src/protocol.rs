@@ -88,14 +88,14 @@ pub enum GameMessage {
     /// 
     /// # 필드
     /// 
-    /// * `client_id` - 서버에서 할당한 고유 클라이언트 ID
+    /// * `user_id` - 서버에서 할당한 고유 사용자 ID
     /// 
     /// # 사용법
     /// 
     /// ```rust
-    /// let ack = GameMessage::ConnectionAck { client_id: 123 };
+    /// let ack = GameMessage::ConnectionAck { user_id: 123 };
     /// ```
-    ConnectionAck { client_id: u32 },
+    ConnectionAck { user_id: u32 },
     
     /// 에러 메시지
     /// 
@@ -117,10 +117,49 @@ pub enum GameMessage {
     /// ```
     Error { code: u16, message: String },
     
-    // 향후 확장용 메시지들
-    // ChatMessage { room_id: u32, user_id: u32, content: String, timestamp: i64 },
-    // PlayerJoin { room_id: u32, user_id: u32, nick: String },
-    // PlayerLeave { room_id: u32, user_id: u32 },
+    /// 방 입장 (클라이언트 → 서버)
+    /// 
+    /// 클라이언트가 특정 방에 입장을 요청하는 메시지입니다.
+    /// 
+    /// # 필드
+    /// 
+    /// * `user_id` - 입장하려는 사용자 ID
+    /// * `room_id` - 입장하려는 방 ID
+    /// * `nickname` - 사용자 닉네임
+    RoomJoin { user_id: u32, room_id: u32, nickname: String },
+    
+    /// 채팅 메시지 (클라이언트 ↔ 서버)
+    /// 
+    /// 채팅 메시지를 전송하거나 수신하는 메시지입니다.
+    /// 
+    /// # 필드
+    /// 
+    /// * `user_id` - 메시지 전송자 ID
+    /// * `room_id` - 채팅이 발생하는 방 ID
+    /// * `content` - 채팅 내용
+    /// * `timestamp` - 메시지 전송 시간
+    ChatMessage { user_id: u32, room_id: u32, content: String, timestamp: i64 },
+    
+    /// 친구 추가 (클라이언트 → 서버)
+    /// 
+    /// 다른 사용자를 친구로 추가하는 메시지입니다.
+    /// 
+    /// # 필드
+    /// 
+    /// * `user_id` - 친구 추가를 요청하는 사용자 ID
+    /// * `friend_user_id` - 친구로 추가할 사용자 ID
+    /// * `nickname` - 친구의 닉네임
+    FriendAdd { user_id: u32, friend_user_id: u32, nickname: String },
+    
+    /// 친구 삭제 (클라이언트 → 서버)
+    /// 
+    /// 친구를 삭제하는 메시지입니다.
+    /// 
+    /// # 필드
+    /// 
+    /// * `user_id` - 친구 삭제를 요청하는 사용자 ID
+    /// * `friend_user_id` - 삭제할 친구의 사용자 ID
+    FriendRemove { user_id: u32, friend_user_id: u32 },
 }
 
 impl GameMessage {

@@ -9,6 +9,7 @@ pub mod test_service;
 pub mod test_handler;
 pub mod test_tools;
 pub mod all_test;
+pub mod integration_test;
 
 // 테스트 유틸리티
 use std::sync::Arc;

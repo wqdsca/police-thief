@@ -6,7 +6,7 @@ use crate::config::redis_config::RedisConfig;
 use crate::service::redis::core::redis_get_key::KeyType;
 use crate::service::redis::core::retry_operation::RETRY_OPT;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ZSetHelper {
     conn: RedisConfig,
     key: KeyType,
@@ -233,8 +233,8 @@ impl ZSetHelper {
         Ok(score.is_some())
     }
 
-    /// 점수 조회
-    pub async fn get_member_score(&self, id: u16, member: &str) -> Result<Option<f64>> {
+    /// 점수 조회 (ID 기반)
+    pub async fn get_member_score_by_id(&self, id: u16, member: &str) -> Result<Option<f64>> {
         let key = self.key.get_key(&id);
         RETRY_OPT.execute::<Option<f64>, _, _>(|| {
             let key = key.clone();
@@ -325,6 +325,75 @@ impl ZSetHelper {
                 conn.expire(&key, ttl as i64)
                     .await
                     .context("ZSetHelper: EXPIRE 실패")
+            }
+        }).await
+    }
+
+    /// 점수 범위로 멤버 조회 (내림차순)
+    pub async fn get_range_by_score(&self, min_score: f64, max_score: f64) -> Result<Vec<String>> {
+        use crate::config::connection_pool::ConnectionPool;
+        
+        let key = self.key.get_index_key(); // room:list:time:index 같은 전역 키 사용
+        println!("DEBUG ZSetHelper: key={}, min_score={}, max_score={}, limit={}", 
+            key, min_score, max_score, self.limit.unwrap_or(20)); // DEBUG 로그 추가
+        println!("DEBUG ZSetHelper: min_score={:?}, max_score={:?}", min_score, max_score); // 실제 값 확인
+        
+        let result = RETRY_OPT.execute::<Vec<String>, _, _>(|| {
+            let key = key.clone();
+            async move {
+                let mut conn = ConnectionPool::get_connection().await
+                    .map_err(|e| anyhow::anyhow!("Connection pool error: {}", e))?;
+                let max_arg = if max_score.is_infinite() && max_score.is_sign_positive() {
+                    "+inf".to_string()
+                } else if max_score.is_infinite() && max_score.is_sign_negative() {
+                    "-inf".to_string()
+                } else {
+                    max_score.to_string()
+                };
+                
+                let min_arg = if min_score.is_infinite() && min_score.is_sign_positive() {
+                    "+inf".to_string()
+                } else if min_score.is_infinite() && min_score.is_sign_negative() {
+                    "-inf".to_string()
+                } else {
+                    min_score.to_string()
+                };
+                
+                println!("DEBUG: ZREVRANGEBYSCORE {} {} {} LIMIT 0 {}", key, max_arg, min_arg, self.limit.unwrap_or(20));
+                
+                redis::cmd("ZREVRANGEBYSCORE")
+                    .arg(&key)
+                    .arg(&max_arg)
+                    .arg(&min_arg)
+                    .arg("LIMIT")
+                    .arg(0)
+                    .arg(self.limit.unwrap_or(20))
+                    .query_async(&mut conn)
+                    .await
+                    .context("ZSetHelper: ZREVRANGEBYSCORE 실패")
+            }
+        }).await;
+        
+        match &result {
+            Ok(vec) => println!("DEBUG ZSetHelper: result.len()={}", vec.len()),
+            Err(e) => println!("DEBUG ZSetHelper: error={}", e),
+        }
+        
+        result
+    }
+
+    /// 특정 멤버의 점수 조회 (전역 키 사용)
+    pub async fn get_member_score(&self, member: i64) -> Result<Option<f64>> {
+        use crate::config::connection_pool::ConnectionPool;
+        
+        let key = self.key.get_index_key(); // room:list:time:index 같은 전역 키 사용
+        RETRY_OPT.execute::<Option<f64>, _, _>(|| {
+            let key = key.clone();
+            let member = member.to_string();
+            async move {
+                let mut conn = ConnectionPool::get_connection().await
+                    .map_err(|e| anyhow::anyhow!("Connection pool error: {}", e))?;
+                conn.zscore(&key, member).await.context("ZSetHelper: ZSCORE 실패")
             }
         }).await
     }

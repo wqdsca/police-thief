@@ -8,12 +8,13 @@ use anyhow::Result;
 //room_user_list => room_user_list{room_id}
 //room_list_by_time => room_list_by_time{room_id}
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum KeyType {
     User,
     RoomInfo,
     RoomUserList,
     RoomListByTime,
+    RoomId,
     Custom(String),
 }
 
@@ -25,6 +26,7 @@ impl KeyType {
             KeyType::RoomUserList => format!("room:users:{id}"),
             KeyType::RoomListByTime => format!("room:list:time:{id}"),
             KeyType::Custom(prefix) => format!("{prefix}:{id}"),
+            KeyType::RoomId => format!("recycle_room_id : {id}"),
         }
     }
 
@@ -35,6 +37,7 @@ impl KeyType {
             KeyType::RoomUserList => "room:users:index".to_string(),
             KeyType::RoomListByTime => "room:list:time:index".to_string(),
             KeyType::Custom(prefix) => format!("{prefix}:index"),
+            KeyType::RoomId => "recycle_room_id:index".to_string(),
         }
     }
 }

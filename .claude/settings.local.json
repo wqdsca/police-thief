@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__sequential-thinking__sequentialthinking",
+      "Bash(cargo build:*)",
+      "Bash(where cargo)",
+      "Bash(rm:*)",
+      "Bash(powershell:*)",
+      "Bash(cargo --version)",
+      "Bash(cargo test:*)",
+      "Bash(cargo check:*)",
+      "Bash(cargo run:*)",
+      "Bash(redis-cli:*)",
+      "Bash(start /B cargo run --bin grpcserver)",
+      "Bash(timeout 10 cargo run --bin grpcserver)",
+      "Bash(rustc:*)"
+    ],
+    "deny": []
+  }
+}

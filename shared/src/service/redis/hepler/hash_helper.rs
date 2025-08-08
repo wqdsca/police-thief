@@ -6,7 +6,7 @@ use crate::config::redis_config::RedisConfig;
 use crate::service::redis::core::redis_get_key::KeyType;
 use crate::service::redis::core::retry_operation::RETRY_OPT;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct HashHelper {
     conn: RedisConfig,
     key: KeyType,
@@ -18,8 +18,12 @@ impl HashHelper {
         Self { conn, key, ttl }
     }
 
+
+    /// HSET MULTIPLE 
+ 
     /// HSET field <- JSON(value). ttl이 설정되어 있으면 HSET+EXPIRE 파이프라인.
     /// 반환: 추가된 필드 수(0 또는 1)
+    /// 
     pub async fn set_hash_field<T: Serialize>(
         &self,
         id: u16,

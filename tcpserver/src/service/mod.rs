@@ -7,7 +7,7 @@
 //! ```
 //! Service Layer
 //! ├── ConnectionService (연결 관리)
-//! │   ├── 클라이언트 연결 추가/제거
+//! │   ├── 사용자 연결 추가/제거
 //! │   ├── 메시지 송수신
 //! │   ├── 브로드캐스트
 //! │   └── 연결 통계
@@ -66,13 +66,13 @@ pub mod simple_services;
 
 /// 연결 관리 서비스
 /// 
-/// 클라이언트 연결의 전체 생명주기를 관리하는 핵심 서비스입니다.
+/// 사용자 연결의 전체 생명주기를 관리하는 핵심 서비스입니다.
 /// 연결 추가/제거, 메시지 송수신, 브로드캐스트, 통계 수집을 담당합니다.
 pub mod connection_service;
 
 /// 하트비트 관리 서비스
 /// 
-/// 클라이언트 연결 상태를 주기적으로 모니터링하고
+/// 사용자 연결 상태를 주기적으로 모니터링하고
 /// 타임아웃된 연결을 자동으로 정리하는 서비스입니다.
 pub mod heartbeat_service;
 
@@ -84,7 +84,7 @@ pub mod tcp_service;
 
 /// 메시지 처리 서비스
 /// 
-/// 게임 메시지의 라우팅, 처리, 통계를 담당하는 서비스입니다.
+/// 서버 메시지의 라우팅, 처리, 통계를 담당하는 서비스입니다.
 /// 메시지 핸들러 등록, 메시지 타입별 처리, 에러 처리를 제공합니다.
 pub mod message_service;
 
@@ -96,8 +96,8 @@ pub use simple_services::*;
 
 /// 연결 관리 서비스 타입들
 /// 
-/// 클라이언트 연결 관리와 관련된 모든 타입들을 제공합니다.
-/// ConnectionService, ClientConnection, ConnectionStats 등이 포함됩니다.
+/// 사용자 연결 관리와 관련된 모든 타입들을 제공합니다.
+/// ConnectionService, UserConnection, ConnectionStats 등이 포함됩니다.
 pub use connection_service::*;
 
 /// 하트비트 관리 서비스 타입들
@@ -109,7 +109,7 @@ pub use heartbeat_service::*;
 /// TCP 서버 서비스 타입들
 /// 
 /// TCP 서버 설정과 관련된 모든 타입들을 제공합니다.
-/// TcpGameService, TcpServerConfig, ServerStats 등이 포함됩니다.
+/// TcpService, TcpServerConfig, ServerStats 등이 포함됩니다.
 pub use tcp_service::*;
 
 /// 메시지 처리 서비스 타입들

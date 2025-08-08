@@ -11,7 +11,7 @@ use crate::user::{
     LoginRequest, LoginResponse,
     RegisterRequest, RegisterResponse,
 };
-use crate::tool::error::{AppError, helpers};
+use shared::tool::error::{AppError, helpers};
 
 /// User Service gRPC 컨트롤러
 /// 
@@ -43,7 +43,7 @@ impl UserController {
     /// * `Result<(), AppError>` - 검증 결과
     fn validate_login_request(&self, req: &LoginRequest) -> Result<(), AppError> {
         // 로그인 타입 검증
-        let valid_login_types = ["google", "apple", "guest"];
+        let valid_login_types = ["google", "apple", "test"];
         if !valid_login_types.contains(&req.login_type.as_str()) {
             return Err(AppError::InvalidLoginType(req.login_type.clone()));
         }

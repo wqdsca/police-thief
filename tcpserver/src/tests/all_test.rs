@@ -51,7 +51,7 @@ async fn test_protocol_comprehensive() -> Result<()> {
         GameMessage::HeartBeatResponse { 
             timestamp: SimpleUtils::current_timestamp() 
         },
-        GameMessage::ConnectionAck { client_id: 12345 },
+        GameMessage::ConnectionAck { user_id: 12345 },
         GameMessage::Error { 
             code: 404, 
             message: "Test error".to_string() 

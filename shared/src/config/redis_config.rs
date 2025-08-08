@@ -11,6 +11,16 @@ pub struct RedisConfig {
     pub port: u16,
 }
 
+impl std::fmt::Debug for RedisConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RedisConfig")
+            .field("host", &self.host)
+            .field("port", &self.port)
+            .field("conn", &"<ConnectionManager>")
+            .finish()
+    }
+}
+
 impl RedisConfig {
     pub async fn new() -> Result<Self, RedisError> {
         // .env 파일 로드 - workspace root에서 찾기

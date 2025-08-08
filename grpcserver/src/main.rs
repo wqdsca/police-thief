@@ -60,6 +60,12 @@ async fn main() -> Result<()> {
     info!("🔐 JWT 설정: algorithm={}, secret_length={}", jwt_algorithm, jwt_secret.len());
     info!("💡 JWT 토큰 검증은 컨트롤러 레벨에서 구현됩니다.");
 
+    // Redis 연결 풀 초기화 (성능 최적화)
+    info!("🔄 Redis 연결 풀 초기화 중...");
+    shared::config::connection_pool::ConnectionPool::init().await
+        .map_err(|e| anyhow::anyhow!("Redis 연결 풀 초기화 실패: {}", e))?;
+    info!("✅ Redis 연결 풀 초기화 완료");
+
     // 컨트롤러에 비즈니스 로직 서비스 주입
     let room_ctrl = RoomController::new(RoomService::new());
     let user_ctrl = UserController::new(UserService::new());

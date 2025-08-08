@@ -32,61 +32,61 @@ impl ConnectionHandler {
         }
     }
     
-    /// 새로운 클라이언트 연결 처리
+    /// 새로운 사용자 연결 처리
     pub async fn handle_new_connection(&self, stream: TcpStream, addr: String) -> Result<u32> {
-        info!("새 클라이언트 연결 처리 시작: {}", addr);
+        info!("새 사용자 연결 처리 시작: {}", addr);
         
         // IP 주소 검증
         let socket_addr = NetworkUtils::parse_socket_addr(&addr)?;
         let ip_info = IpInfo::from_socket_addr(&socket_addr);
         
         // 보안 검증 (예: 차단된 IP 확인)
-        if let Err(e) = self.validate_client_connection(&ip_info).await {
-            warn!("클라이언트 연결 거부: {} - {}", addr, e);
+        if let Err(e) = self.validate_user_connection(&ip_info).await {
+            warn!("사용자 연결 거부: {} - {}", addr, e);
             return Err(e);
         }
         
         // 연결 서비스에 등록
-        let client_id = self.connection_service.handle_new_connection(stream, addr.clone()).await?;
+        let user_id = self.connection_service.handle_new_connection(stream, addr.clone()).await?;
         
         // 환영 메시지 전송 (선택적)
-        if let Err(e) = self.send_welcome_message(client_id).await {
+        if let Err(e) = self.send_welcome_message(user_id).await {
             warn!("환영 메시지 전송 실패: {}", e);
         }
         
-        info!("✅ 클라이언트 {} 연결 처리 완료", client_id);
-        Ok(client_id)
+        info!("✅ 사용자 {} 연결 처리 완료", user_id);
+        Ok(user_id)
     }
     
-    /// 클라이언트 연결 해제 처리
-    pub async fn handle_disconnection(&self, client_id: u32, reason: &str) -> Result<()> {
-        info!("클라이언트 {} 연결 해제 처리: {}", client_id, reason);
+    /// 사용자 연결 해제 처리
+    pub async fn handle_disconnection(&self, user_id: u32, reason: &str) -> Result<()> {
+        info!("사용자 {} 연결 해제 처리: {}", user_id, reason);
         
-        // 다른 클라이언트들에게 알림 (게임 로직에 따라)
+        // 다른 사용자들에게 알림 (필요한 경우)
         let disconnect_message = GameMessage::Error {
             code: 1001,
-            message: format!("클라이언트 {}가 연결을 해제했습니다", client_id),
+            message: format!("사용자 {}가 연결을 해제했습니다", user_id),
         };
         
-        // 브로드캐스트는 선택적으로 (게임 상황에 따라)
+        // 브로드캐스트는 선택적으로 (필요한 경우에만)
         if let Err(e) = self.message_service.broadcast(&disconnect_message).await {
             warn!("연결 해제 알림 브로드캐스트 실패: {}", e);
         }
         
         // 연결 서비스에서 제거
-        let removed = self.connection_service.remove_connection(client_id).await;
+        let removed = self.connection_service.remove_connection(user_id).await;
         
         if removed {
-            info!("✅ 클라이언트 {} 연결 해제 완료", client_id);
+            info!("✅ 사용자 {} 연결 해제 완료", user_id);
         } else {
-            warn!("클라이언트 {}가 이미 해제되었습니다", client_id);
+            warn!("사용자 {}가 이미 해제되었습니다", user_id);
         }
         
         Ok(())
     }
     
-    /// 클라이언트 연결 유효성 검증
-    async fn validate_client_connection(&self, ip_info: &IpInfo) -> Result<()> {
+    /// 사용자 연결 유효성 검증
+    async fn validate_user_connection(&self, ip_info: &IpInfo) -> Result<()> {
         // 기본 검증
         if ip_info.address.is_empty() {
             return Err(anyhow!("유효하지 않은 IP 주소"));
@@ -114,25 +114,25 @@ impl ConnectionHandler {
         // IP별 연결 수 제한 (향후 구현)
         // TODO: IP별 연결 수 추적 및 제한
         
-        debug!("클라이언트 연결 검증 통과: {}", ip_info.address);
+        debug!("사용자 연결 검증 통과: {}", ip_info.address);
         Ok(())
     }
     
     /// 환영 메시지 전송
-    async fn send_welcome_message(&self, client_id: u32) -> Result<()> {
-        let welcome_message = GameMessage::ConnectionAck { client_id };
+    async fn send_welcome_message(&self, user_id: u32) -> Result<()> {
+        let welcome_message = GameMessage::ConnectionAck { user_id };
         
-        self.connection_service.send_to_client(client_id, &welcome_message).await?;
+        self.connection_service.send_to_user(user_id, &welcome_message).await?;
         
-        debug!("환영 메시지 전송 완료: 클라이언트 {}", client_id);
+        debug!("환영 메시지 전송 완료: 사용자 {}", user_id);
         Ok(())
     }
     
     /// 연결 품질 확인
-    pub async fn check_connection_quality(&self, client_id: u32) -> Result<ConnectionQuality> {
-        if let Some(client_info) = self.connection_service.get_client_info(client_id).await {
-            let uptime = client_info.uptime_seconds;
-            let last_heartbeat_secs = client_info.last_heartbeat.elapsed().as_secs();
+    pub async fn check_connection_quality(&self, user_id: u32) -> Result<ConnectionQuality> {
+        if let Some(user_info) = self.connection_service.get_user_info(user_id).await {
+            let uptime = user_info.uptime_seconds;
+            let last_heartbeat_secs = user_info.last_heartbeat.elapsed().as_secs();
             
             let quality = match (uptime, last_heartbeat_secs) {
                 (u, h) if u > 3600 && h < 10 => ConnectionQuality::Excellent, // 1시간+ 연결, 최근 하트비트
@@ -144,24 +144,24 @@ impl ConnectionHandler {
             
             Ok(quality)
         } else {
-            Err(anyhow!("클라이언트 {}를 찾을 수 없습니다", client_id))
+            Err(anyhow!("사용자 {}를 찾을 수 없습니다", user_id))
         }
     }
     
-    /// 모든 클라이언트 연결 상태 요약
+    /// 모든 사용자 연결 상태 요약
     pub async fn get_connections_summary(&self) -> ConnectionsSummary {
-        let clients = self.connection_service.get_all_clients().await;
+        let users = self.connection_service.get_all_users().await;
         let stats = self.connection_service.get_connection_stats().await;
         
         let mut quality_counts = std::collections::HashMap::new();
-        for client in &clients {
-            if let Ok(quality) = self.check_connection_quality(client.client_id).await {
+        for user in &users {
+            if let Ok(quality) = self.check_connection_quality(user.user_id).await {
                 *quality_counts.entry(format!("{:?}", quality)).or_insert(0) += 1;
             }
         }
         
         ConnectionsSummary {
-            total_connections: clients.len(),
+            total_connections: users.len(),
             quality_distribution: quality_counts,
             peak_connections: stats.peak_connections,
             total_lifetime_connections: stats.total_connections,
@@ -171,16 +171,16 @@ impl ConnectionHandler {
     
     /// 문제 있는 연결들 식별
     pub async fn identify_problematic_connections(&self) -> Vec<ProblematicConnection> {
-        let clients = self.connection_service.get_all_clients().await;
+        let users = self.connection_service.get_all_users().await;
         let mut problematic = Vec::new();
         
-        for client in clients {
-            let last_heartbeat_secs = client.last_heartbeat.elapsed().as_secs();
+        for user in users {
+            let last_heartbeat_secs = user.last_heartbeat.elapsed().as_secs();
             
             if last_heartbeat_secs > 25 { // 타임아웃 임박
                 problematic.push(ProblematicConnection {
-                    client_id: client.client_id,
-                    addr: client.addr,
+                    user_id: user.user_id,
+                    addr: user.addr,
                     issue: "하트비트 지연".to_string(),
                     severity: if last_heartbeat_secs > 30 { "높음" } else { "보통" }.to_string(),
                     last_heartbeat_secs,
@@ -206,7 +206,7 @@ pub struct ConnectionsSummary {
 /// 문제 있는 연결 정보
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ProblematicConnection {
-    pub client_id: u32,
+    pub user_id: u32,
     pub addr: String,
     pub issue: String,
     pub severity: String,

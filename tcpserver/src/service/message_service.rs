@@ -151,6 +151,10 @@ impl MessageService {
             GameMessage::HeartBeatResponse { .. } => "heartbeat_response".to_string(),
             GameMessage::ConnectionAck { .. } => "connection_ack".to_string(),
             GameMessage::Error { .. } => "error".to_string(),
+            GameMessage::RoomJoin { .. } => "room_join".to_string(),
+            GameMessage::ChatMessage { .. } => "chat".to_string(),
+            GameMessage::FriendAdd { .. } => "friend_add".to_string(),
+            GameMessage::FriendRemove { .. } => "friend_remove".to_string(),
         }
     }
     
@@ -168,7 +172,7 @@ impl MessageService {
         if let Some(handler) = handlers_lock.get(message_type) {
             if let Some(cid) = client_id {
                 if let Ok(Some(response)) = handler(cid, message) {
-                    connection_service.send_to_client(cid, &response).await?;
+                    connection_service.send_to_user(cid, &response).await?;
                 }
             }
         } else {
@@ -179,7 +183,7 @@ impl MessageService {
                         let response = GameMessage::HeartBeatResponse { 
                             timestamp: SimpleUtils::current_timestamp() 
                         };
-                        connection_service.send_to_client(cid, &response).await?;
+                        connection_service.send_to_user(cid, &response).await?;
                     }
                 }
                 GameMessage::Error { code, message } => {
@@ -232,7 +236,7 @@ impl MessageService {
             message: error_message.to_string(),
         };
         
-        self.connection_service.send_to_client(client_id, &error_msg).await?;
+        self.connection_service.send_to_user(client_id, &error_msg).await?;
         
         Self::update_message_stats(
             &self.message_stats,

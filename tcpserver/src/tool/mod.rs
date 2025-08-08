@@ -4,5 +4,7 @@
 
 pub mod simple_utils;
 pub mod error;
+pub mod network_utils;
 
 pub use simple_utils::*;
+pub use network_utils::{NetworkUtils, IpInfo, ConnectionQuality};
