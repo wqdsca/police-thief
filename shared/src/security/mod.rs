@@ -10,14 +10,17 @@ pub mod middleware;
 pub mod redis_command_validator;
 pub mod access_control;
 pub mod security_auditor;
+pub mod input_validator;
+pub mod key_manager;
 
-pub use jwt::*;
-pub use validation::*;
-pub use rate_limiter::*;
-pub use crypto::*;
-pub use middleware::*;
-pub use redis_command_validator::*;
 pub use access_control::*;
+pub use crypto::*;
+pub use input_validator::{InputType, InputValidator, PasswordStrength};
+pub use jwt::*;
+pub use key_manager::{KeyInfo, KeyManager};
+pub use middleware::*;
+pub use rate_limiter::*;
+pub use redis_command_validator::*;
 pub use security_auditor::*;
 
 use thiserror::Error;

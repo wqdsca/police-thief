@@ -4,7 +4,7 @@
 //! - 통합 보안 검증 레이어
 
 use crate::security::{
-    SecurityConfig, SecurityError, JwtManager, InputValidator, RateLimiter, CryptoManager,
+    CryptoManager, InputValidator, JwtManager, RateLimiter, SecurityConfig, SecurityError,
 };
 use std::net::IpAddr;
 use std::sync::Arc;
@@ -22,7 +22,7 @@ impl SecurityMiddleware {
     /// 새 보안 미들웨어 생성
     pub async fn new(config: SecurityConfig) -> Result<Self, SecurityError> {
         let jwt_manager = Arc::new(JwtManager::new(config.clone())?);
-        let input_validator = Arc::new(InputValidator::new(config.clone())?);
+        let input_validator = Arc::new(InputValidator::new());
         let rate_limiter = Arc::new(RateLimiter::from_security_config(&config));
         let crypto_manager = Arc::new(CryptoManager::new(config.clone()));
         
@@ -52,7 +52,9 @@ impl SecurityMiddleware {
     
     /// 입력 데이터 검증
     pub fn validate_input(&self, data: &str) -> Result<(), SecurityError> {
-        self.input_validator.validate_json_payload(data)
+        self.input_validator.validate_json(data)
+            .map(|_| ())
+            .map_err(|e| SecurityError::InvalidInput(e))
     }
     
     /// 패킷 검증 (바이너리 데이터)
@@ -95,9 +97,12 @@ impl SecurityMiddleware {
     /// 사용자 등록 처리 (예시)
     pub async fn register_user(&self, username: &str, password: &str, email: &str) -> Result<String, SecurityError> {
         // 입력 검증
-        self.input_validator.validate_username(username)?;
-        self.input_validator.validate_password(password)?;
-        self.input_validator.validate_email(email)?;
+        self.input_validator.validate(username, crate::security::InputType::Username)
+            .map_err(|e| SecurityError::InvalidInput(e))?;
+        self.input_validator.validate(password, crate::security::InputType::Password)
+            .map_err(|e| SecurityError::InvalidInput(e))?;
+        self.input_validator.validate(email, crate::security::InputType::Email)
+            .map_err(|e| SecurityError::InvalidInput(e))?;
         
         // 비밀번호 해싱
         let _password_hash = self.crypto_manager.hash_password(password)?; // TODO: 데이터베이스에 저장
@@ -118,7 +123,8 @@ impl SecurityMiddleware {
     /// 사용자 로그인 처리 (예시)
     pub async fn login_user(&self, username: &str, password: &str, stored_hash: &str) -> Result<(String, String), SecurityError> {
         // 입력 검증
-        self.input_validator.validate_username(username)?;
+        self.input_validator.validate(username, crate::security::InputType::Username)
+            .map_err(|e| SecurityError::InvalidInput(e))?;
         
         // 비밀번호 검증
         if !self.crypto_manager.verify_password(password, stored_hash)? {
@@ -194,7 +200,7 @@ impl SecurityMiddleware {
 mod tests {
     use super::*;
     use std::str::FromStr;
-    
+
     #[tokio::test]
     async fn test_security_middleware() {
         let config = SecurityConfig::default();

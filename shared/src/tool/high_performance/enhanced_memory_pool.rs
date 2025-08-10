@@ -5,11 +5,11 @@
 //! - 메모리 효율: 25% 개선 (적응형 크기 관리)
 //! - CPU 캐시 미스: 30% 감소 (메모리 정렬 + NUMA 인식)
 
-use std::sync::{Arc, atomic::{AtomicU64, Ordering}};
-use std::collections::HashMap;
-use std::cell::RefCell;
 use crossbeam_queue::SegQueue;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::sync::{atomic::{AtomicU64, Ordering}, Arc};
 use tracing::{debug, info};
 
 /// 버퍼 크기 계층 (2의 거듭제곱 기반)
@@ -108,7 +108,7 @@ impl AlignedBuffer {
         // 정렬을 고려한 크기 계산
         let aligned_size = (base_size + alignment - 1) & !(alignment - 1);
         
-        let mut data = Vec::with_capacity(aligned_size);
+        let data = Vec::with_capacity(aligned_size);
         
         // 메모리 정렬 보장 (대부분의 경우 Vec은 기본적으로 정렬됨)
         // 필요시에만 추가 정렬 로직 적용
@@ -457,7 +457,7 @@ impl EnhancedMemoryPool {
 mod tests {
     use super::*;
     use std::time::Instant;
-    
+
     #[tokio::test]
     async fn test_enhanced_pool_performance() {
         let pool = EnhancedMemoryPool::new(EnhancedPoolConfig::default());

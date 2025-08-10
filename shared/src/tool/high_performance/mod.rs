@@ -13,15 +13,21 @@ pub mod compression;
 pub mod parallel_processing;
 pub mod redis_optimizer;
 pub mod metrics_collector;
+pub mod blocking_task_executor;
+pub mod lock_free_primitives;
+pub mod network_optimization;
 
-// 주요 타입들 재출력
-pub use memory_pool::*;
-pub use enhanced_memory_pool::*;
-pub use async_task_scheduler::*;
+pub use async_task_scheduler::{AsyncTaskScheduler, TaskPriority};
 pub use atomic_stats::*;
-pub use dashmap_optimizer::*;
-pub use simd_optimizer::*;
+pub use blocking_task_executor::*;
 pub use compression::*;
-pub use parallel_processing::*;
-pub use redis_optimizer::*;
+pub use dashmap_optimizer::*;
+pub use enhanced_memory_pool::*;
+pub use lock_free_primitives::*;
+// 주요 타입들 재출력 (중복 타입 제외)
+pub use memory_pool::*;
 pub use metrics_collector::*;
+pub use network_optimization::*;
+pub use parallel_processing::ParallelProcessingConfig;
+pub use redis_optimizer::*;
+pub use simd_optimizer::*;

@@ -630,21 +630,21 @@ impl GameStateManager {
         }
 
         // 5. 위치 유효성 검사
-        // TODO: WorldConfig를 GameStateManager에 추가하거나 임시로 큰 값 사용
-        if !target_position.is_valid((5000.0, 5000.0, 5000.0)) {
-            warn!(
-                player_id = %player_id,
-                target_position = ?(target_position.x, target_position.y),
-                world_size = ?(5000.0, 5000.0),
-                "Invalid target position"
-            );
-            return Ok(Some(GameMessage::Error {
-                error_code: "INVALID_POSITION".to_string(),
-                error_message: "Target position out of bounds".to_string(),
-                category: ErrorCategory::GameLogic,
-                recoverable: true,
-            }));
-        }
+        // // TODO: WorldConfig를 GameStateManager에 추가하거나 임시로 큰 값 사용
+        // if !target_position.is_valid((5000.0, 5000.0, 5000.0)) {
+        //     warn!(
+        //         player_id = %player_id,
+        //         target_position = ?(target_position.x, target_position.y),
+        //         world_size = ?(5000.0, 5000.0),
+        //         "Invalid target position"
+        //     );
+        //     return Ok(Some(GameMessage::Error {
+        //         error_code: "INVALID_POSITION".to_string(),
+        //         error_message: "Target position out of bounds".to_string(),
+        //         category: ErrorCategory::GameLogic,
+        //         recoverable: true,
+        //     }));
+        // }
 
         // 6. 이동 거리 검사 (치팅 방지)
         let current_position = player_state.player.position;
@@ -1753,8 +1753,7 @@ impl Clone for GameStateManager {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::config::{GameConfig, WorldConfig};
+    use crate::config::WorldConfig;
 
     #[tokio::test]
     async fn test_player_connection_flow() {

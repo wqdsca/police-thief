@@ -25,6 +25,8 @@ crossbeam-queue = "0.3"
 num_cpus = "1.0"
 bytes.workspace = true
 lru = "0.12"
+parking_lot = "0.12"
+socket2 = "0.5"
 
 # 로깅 시스템 의존성
 tracing-subscriber.workspace = true
@@ -35,6 +37,9 @@ regex = "1.10"
 hex = "0.4"
 uuid = { version = "1.0", features = ["v4", "serde"] }
 sha2 = "0.10"
+base64 = "0.21"
+lazy_static = "1.4"
+url = "2.5"
 
 [[bin]]
 name = "run_security_audit"
@@ -43,3 +48,6 @@ path = "src/bin/run_security_audit.rs"
 [dev-dependencies]
 tokio-test.workspace = true
 tempfile = "3.0"
+
+[features]
+default = []

@@ -2407,6 +2407,7 @@ name = "shared"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64 0.21.7",
  "bcrypt",
  "bytes",
  "chrono",
@@ -2417,8 +2418,10 @@ dependencies = [
  "flate2",
  "hex",
  "jsonwebtoken",
+ "lazy_static",
  "lru",
  "num_cpus",
+ "parking_lot",
  "rand 0.8.5",
  "rayon",
  "redis",
@@ -2426,6 +2429,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "socket2 0.5.10",
  "sqlx",
  "tempfile",
  "thiserror 1.0.69",
@@ -2434,6 +2438,7 @@ dependencies = [
  "tonic",
  "tracing",
  "tracing-subscriber",
+ "url",
  "uuid",
 ]
 
@@ -2494,6 +2499,16 @@ checksum = "9f7916fc008ca5542385b89a3d3ce689953c143e9304a9bf8beec1de48994c0d"
 dependencies = [
  "libc",
  "winapi",
+]
+
+[[package]]
+name = "socket2"
+version = "0.5.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e22376abed350d73dd1cd119b57ffccad95b4e585a7cda43e286245ce23c0678"
+dependencies = [
+ "libc",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
