@@ -13,7 +13,14 @@
       "Bash(redis-cli:*)",
       "Bash(start /B cargo run --bin grpcserver)",
       "Bash(timeout 10 cargo run --bin grpcserver)",
-      "Bash(rustc:*)"
+      "Bash(rustc:*)",
+      "Bash(grep:*)",
+      "Bash(mkdir:*)",
+      "Bash(cargo fmt:*)",
+      "Bash(mv:*)",
+      "Bash(cargo clean:*)",
+      "Bash(chmod:*)",
+      "Bash(./run-server.sh:*)"
     ],
     "deny": []
   }

@@ -2,7 +2,10 @@
 //! 
 //! 방 생성 및 조회 기능을 담당하는 gRPC 컨트롤러입니다.
 //! RoomService trait을 구현하여 gRPC 서버에서 방 관련 요청을 처리합니다.
+//! 최적화된 싱글톤 패턴으로 RoomIdGenerator 인스턴스를 재사용합니다.
 
+use std::sync::Arc;
+use tokio::sync::OnceCell;
 use tonic::{Request, Response, Status};
 use tracing::info;
 use crate::service::room_service::RoomService as RoomSvc;
@@ -17,10 +20,14 @@ use shared::model::RoomInfo;
 use shared::tool::current_time::CurrentTime;
 use shared::tool::get_id::RoomIdGenerator;
 
+/// 최적화된 RoomIdGenerator 인스턴스 (싱글톤)
+static ROOM_ID_GENERATOR: OnceCell<Arc<RoomIdGenerator>> = OnceCell::const_new();
+
 /// Room Service gRPC 컨트롤러
 /// 
 /// 방 생성 및 조회 기능을 처리하는 컨트롤러입니다.
 /// RoomService trait을 구현하여 gRPC 요청을 비즈니스 로직으로 연결합니다.
+/// 최적화된 싱글톤 패턴으로 RoomIdGenerator의 Redis 연결을 재사용합니다.
 pub struct RoomController {
     /// 방 관련 비즈니스 로직을 처리하는 서비스
     svc: RoomSvc,
@@ -36,12 +43,48 @@ impl RoomController {
     /// 
     /// # Returns
     /// * `Self` - 초기화된 RoomController 인스턴스
+    /// 
+    /// # Panics
+    /// * JWT_SECRET_KEY 환경변수가 설정되지 않았거나 32자 미만일 경우
     pub fn new(svc: RoomSvc) -> Self { 
-        let token_service = TokenService::new(
-            std::env::var("JWT_SECRET_KEY").unwrap_or_else(|_| "default_secret".to_string()),
-            std::env::var("JWT_ALGORITHM").unwrap_or_else(|_| "HS256".to_string()),
-        );
+        let jwt_secret = std::env::var("JWT_SECRET_KEY")
+            .expect("⚠️ SECURITY ERROR: JWT_SECRET_KEY environment variable is required for production");
+        
+        // 보안 검증: 최소 32자 이상의 시크릿 키 요구
+        if jwt_secret.len() < 32 {
+            panic!("⚠️ SECURITY ERROR: JWT_SECRET_KEY must be at least 32 characters long. Current length: {}", jwt_secret.len());
+        }
+        
+        // 보안 검증: 약한 기본값 사용 방지
+        if jwt_secret.to_lowercase().contains("default") || 
+           jwt_secret.to_lowercase().contains("secret") ||
+           jwt_secret.to_lowercase().contains("change") {
+            panic!("⚠️ SECURITY ERROR: JWT_SECRET_KEY appears to contain default/weak values. Please use a cryptographically secure random key.");
+        }
+        
+        let jwt_algorithm = std::env::var("JWT_ALGORITHM").unwrap_or_else(|_| "HS256".to_string());
+        
+        let token_service = TokenService::new(jwt_secret, jwt_algorithm);
+        
+        tracing::info!("🔐 JWT TokenService initialized with secure configuration");
         Self { svc, token_service } 
+    }
+
+    /// 최적화된 RoomIdGenerator 인스턴스를 가져옵니다.
+    /// 
+    /// 싱글톤 패턴으로 한 번만 초기화하고 재사용하여 Redis 연결 오버헤드를 제거합니다.
+    /// 
+    /// # Returns
+    /// * `Result<Arc<RoomIdGenerator>, AppError>` - RoomIdGenerator 인스턴스
+    async fn get_room_id_generator(&self) -> Result<Arc<RoomIdGenerator>, AppError> {
+        ROOM_ID_GENERATOR
+            .get_or_try_init(|| async {
+                let generator = RoomIdGenerator::from_env().await
+                    .map_err(|e| AppError::InternalError(format!("방 ID 생성기 초기화 실패: {e}")))?;
+                Ok(Arc::new(generator))
+            })
+            .await
+            .cloned()
     }
 
     /// 방 생성 요청을 검증합니다.
@@ -114,15 +157,15 @@ impl RoomService for RoomController {
             }
         }
         
-        // 비즈니스 로직 호출
-        let mut room_id_generator = RoomIdGenerator::from_env().await.map_err(|e| {
-            let app_error = AppError::InternalError(format!("방 ID 생성기 초기화 실패: {e}"));
-            app_error.to_status()
-        })?;
+        // 비즈니스 로직 호출 (최적화된 싱글톤 RoomIdGenerator 사용)
+        let room_id_generator = self.get_room_id_generator().await.map_err(|e| e.to_status())?;
+        let mut generator = Arc::try_unwrap(room_id_generator)
+            .unwrap_or_else(|arc| (*arc).clone());
+        
         let room_id = self
             .svc
             .make_room(RoomInfo {
-                room_id: room_id_generator.get_room_id().await.map_err(|e| {
+                room_id: generator.get_room_id().await.map_err(|e| {
                     let app_error = AppError::InternalError(format!("방 ID 생성 실패: {e}"));
                     app_error.to_status()
                 })?, 

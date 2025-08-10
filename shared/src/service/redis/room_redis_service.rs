@@ -51,7 +51,7 @@ impl RoomRedisService {
        p.zadd(
            zset_key,
            room_id.to_string(), // 멤버 (Member)
-           score as i64,        // 점수 (Score)
+           score,               // 점수 (Score)
        );
         let _resp: Vec<Value> = p.query_async(&mut conn).await
             .map_err(|e| AppError::RedisConnection(e.to_string()))?;
@@ -71,7 +71,7 @@ impl RoomRedisService {
         // 1. last_id의 타임스탬프 조회 (페이징 기준점)
         let last_id_time = if last_id == 0 {
             // 첫 페이지는 현재 시간부터
-            std::f64::INFINITY
+            f64::INFINITY
         } else {
             zset_helper.get_member_score(last_id as i64)
                 .await
@@ -82,7 +82,7 @@ impl RoomRedisService {
         // 2. 해당 시간 이전의 방 목록 조회 (최신순, 20개 제한)
         // ZREVRANGEBYSCORE를 위해 min_score는 -inf, max_score는 타임스탬프 기준점 사용
         println!("DEBUG RoomRedisService: last_id={}, last_id_time={}", last_id, last_id_time);
-        println!("DEBUG RoomRedisService: NEG_INFINITY={}, last_id_time={}", std::f64::NEG_INFINITY, last_id_time);
+        println!("DEBUG RoomRedisService: NEG_INFINITY={}, last_id_time={}", f64::NEG_INFINITY, last_id_time);
         
         // 페이징에서 중복 방지를 위해 last_id보다 작은 타임스탬프만 조회
         let max_score = if last_id == 0 {
@@ -92,7 +92,7 @@ impl RoomRedisService {
         };
         
         let room_id_list: Vec<String> = zset_helper
-            .get_range_by_score(std::f64::NEG_INFINITY, max_score)
+            .get_range_by_score(f64::NEG_INFINITY, max_score)
             .await
             .map_err(|e| AppError::RedisConnection(e.to_string()))?;
             

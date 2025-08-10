@@ -4,7 +4,8 @@ members = [
     "shared",
     "grpcserver", 
     "gamecenter",
-    "tcpserver"
+    "tcpserver",
+    "rudpserver"
 ]
 
 # 공통 의존성 버전 관리를 위한 workspace-wide dependencies
@@ -28,4 +29,13 @@ thiserror = "1.0"
 flate2 = "1.0"
 crc32fast = "1.3"
 sqlx = { version = "0.7", features = ["runtime-tokio-native-tls", "mysql", "chrono", "uuid"] }
+
+# RUDP 서버 전용 의존성
+laminar = "0.5"
+dashmap = "5.5"
+rayon = "1.8"
+parking_lot = "0.12"
+crossbeam = "0.8"
+bytes = "1.5"
+once_cell = "1.19"
 

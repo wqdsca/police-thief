@@ -8,8 +8,11 @@ pub mod message_handler;
 pub mod connection_handler;
 pub mod room_handler;
 pub mod friend_handler;
+pub mod chat_room_handler;
+pub mod chat_room_message_handler;
 
 pub use message_handler::*;
 pub use connection_handler::*;
 pub use room_handler::*;
 pub use friend_handler::*;
+pub use chat_room_message_handler::*;

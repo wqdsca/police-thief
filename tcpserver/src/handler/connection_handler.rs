@@ -5,17 +5,22 @@
 use anyhow::{Result, anyhow};
 use std::sync::Arc;
 use tokio::net::TcpStream;
-use tracing::{info, warn, debug};
+use tokio::io::BufReader;
+use tracing::{info, warn, debug, error};
 
 use crate::service::{ConnectionService, HeartbeatService, MessageService};
 use crate::protocol::GameMessage;
 use crate::tool::{NetworkUtils, IpInfo, ConnectionQuality};
+use shared::config::redis_config::RedisConfig;
+use shared::service::redis::core::redis_get_key::KeyType;
+use redis::AsyncCommands;
 
 /// 연결 핸들러
 pub struct ConnectionHandler {
     connection_service: Arc<ConnectionService>,
     heartbeat_service: Arc<HeartbeatService>,
     message_service: Arc<MessageService>,
+    redis_config: Option<Arc<RedisConfig>>,
 }
 
 impl ConnectionHandler {
@@ -29,6 +34,22 @@ impl ConnectionHandler {
             connection_service,
             heartbeat_service,
             message_service,
+            redis_config: None,
+        }
+    }
+    
+    /// Redis 설정 추가
+    pub async fn with_redis(&mut self) -> Result<()> {
+        match RedisConfig::new().await {
+            Ok(config) => {
+                self.redis_config = Some(Arc::new(config));
+                info!("Redis 연결 성공");
+                Ok(())
+            }
+            Err(e) => {
+                error!("Redis 연결 실패: {}", e);
+                Err(anyhow!("Redis 연결 실패: {}", e))
+            }
         }
     }
     
@@ -46,16 +67,53 @@ impl ConnectionHandler {
             return Err(e);
         }
         
-        // 연결 서비스에 등록
-        let user_id = self.connection_service.handle_new_connection(stream, addr.clone()).await?;
+        // 스트림 분리
+        let (reader, writer) = stream.into_split();
+        let mut buf_reader = BufReader::new(reader);
         
-        // 환영 메시지 전송 (선택적)
-        if let Err(e) = self.send_welcome_message(user_id).await {
+        // 클라이언트로부터 Connect 메시지 대기
+        let connect_msg = match GameMessage::read_from_stream(&mut buf_reader).await {
+            Ok(msg) => msg,
+            Err(e) => {
+                error!("Connect 메시지 읽기 실패: {}", e);
+                return Err(anyhow!("Connect 메시지 읽기 실패: {}", e));
+            }
+        };
+        
+        // Connect 메시지 검증 및 처리
+        let (room_id, user_id) = match connect_msg {
+            GameMessage::Connect { room_id, user_id } => {
+                info!("Connect 메시지 수신: room_id={}, user_id={}", room_id, user_id);
+                (room_id, user_id)
+            }
+            _ => {
+                warn!("잘못된 초기 메시지 타입: {:?}", connect_msg);
+                return Err(anyhow!("첫 메시지는 Connect 메시지여야 합니다"));
+            }
+        };
+        
+        // TCP 호스트 정보를 Redis에 저장
+        if let Some(redis_config) = &self.redis_config {
+            if let Err(e) = self.store_tcp_host_to_redis(user_id, &addr, redis_config.as_ref()).await {
+                error!("Redis에 TCP 호스트 정보 저장 실패: {}", e);
+                // Redis 실패는 치명적이지 않으므로 계속 진행
+            }
+        } else {
+            warn!("Redis가 설정되지 않아 TCP 호스트 정보를 저장할 수 없습니다");
+        }
+        
+        // 연결 서비스에 등록 (reader와 writer를 다시 합침)
+        let reader = buf_reader.into_inner();
+        let reunited_stream = reader.reunite(writer)?;
+        let registered_user_id = self.connection_service.handle_new_connection_with_id(reunited_stream, addr.clone(), user_id).await?;
+        
+        // 환영 메시지 전송
+        if let Err(e) = self.send_welcome_message(registered_user_id).await {
             warn!("환영 메시지 전송 실패: {}", e);
         }
         
-        info!("✅ 사용자 {} 연결 처리 완료", user_id);
-        Ok(user_id)
+        info!("✅ 사용자 {} (room_id={}) 연결 처리 완료", user_id, room_id);
+        Ok(registered_user_id)
     }
     
     /// 사용자 연결 해제 처리
@@ -118,6 +176,24 @@ impl ConnectionHandler {
         Ok(())
     }
     
+    /// TCP 호스트 정보를 Redis에 저장
+    async fn store_tcp_host_to_redis(&self, user_id: u32, addr: &str, redis_config: &RedisConfig) -> Result<()> {
+        let mut conn = redis_config.get_connection();
+        let key_type = KeyType::User;
+        let user_key = key_type.get_key(&(user_id as u16));
+        
+        // TCP 호스트 정보를 user_info 해시에 저장
+        let _: () = conn.hset(&user_key, "tcp_host", addr).await
+            .map_err(|e| anyhow!("Redis HSET 실패: {}", e))?;
+        
+        // TTL 갱신 (1시간)
+        let _: () = conn.expire(&user_key, 3600).await
+            .map_err(|e| anyhow!("Redis EXPIRE 실패: {}", e))?;
+        
+        debug!("사용자 {} TCP 호스트 정보 Redis 저장 완료: {}", user_id, addr);
+        Ok(())
+    }
+    
     /// 환영 메시지 전송
     async fn send_welcome_message(&self, user_id: u32) -> Result<()> {
         let welcome_message = GameMessage::ConnectionAck { user_id };
@@ -135,11 +211,11 @@ impl ConnectionHandler {
             let last_heartbeat_secs = user_info.last_heartbeat.elapsed().as_secs();
             
             let quality = match (uptime, last_heartbeat_secs) {
-                (u, h) if u > 3600 && h < 10 => ConnectionQuality::Excellent, // 1시간+ 연결, 최근 하트비트
-                (u, h) if u > 300 && h < 20 => ConnectionQuality::Good,        // 5분+ 연결, 양호한 하트비트
-                (u, h) if u > 60 && h < 30 => ConnectionQuality::Fair,         // 1분+ 연결, 보통 하트비트
-                (_, h) if h < 60 => ConnectionQuality::Poor,                   // 최근 연결이지만 하트비트 지연
-                _ => ConnectionQuality::VeryPoor,                              // 문제 있는 연결
+                (u, h) if u > 3600 && h < 600 => ConnectionQuality::Excellent,  // 1시간+ 연결, 10분 내 하트비트
+                (u, h) if u > 1800 && h < 900 => ConnectionQuality::Good,       // 30분+ 연결, 15분 내 하트비트
+                (u, h) if u > 600 && h < 1200 => ConnectionQuality::Fair,       // 10분+ 연결, 20분 내 하트비트
+                (_, h) if h < 1500 => ConnectionQuality::Poor,                  // 25분 내 하트비트
+                _ => ConnectionQuality::VeryPoor,                               // 문제 있는 연결
             };
             
             Ok(quality)
@@ -177,12 +253,12 @@ impl ConnectionHandler {
         for user in users {
             let last_heartbeat_secs = user.last_heartbeat.elapsed().as_secs();
             
-            if last_heartbeat_secs > 25 { // 타임아웃 임박
+            if last_heartbeat_secs > 1500 { // 25분 - 타임아웃 임박 (30분 타임아웃 전 5분)
                 problematic.push(ProblematicConnection {
                     user_id: user.user_id,
                     addr: user.addr,
                     issue: "하트비트 지연".to_string(),
-                    severity: if last_heartbeat_secs > 30 { "높음" } else { "보통" }.to_string(),
+                    severity: if last_heartbeat_secs > 1800 { "높음" } else { "보통" }.to_string(),
                     last_heartbeat_secs,
                 });
             }

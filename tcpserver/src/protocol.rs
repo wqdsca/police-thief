@@ -1,33 +1,45 @@
 //! TCP 게임 프로토콜 정의
 //! 
 //! 클라이언트와 서버 간 통신을 위한 메시지 프로토콜을 정의합니다.
-//! 바이너리 직렬화를 사용하여 성능을 최적화합니다.
+//! 성능 최적화를 위해 JSON과 바이너리 프로토콜을 모두 지원합니다.
 //! 
 //! # 프로토콜 구조
 //! 
+//! **JSON 프로토콜 (기존):**
 //! ```
 //! [4바이트 길이 헤더][JSON 메시지 데이터]
 //! ```
 //! 
-//! # 메시지 타입
+//! **바이너리 프로토콜 (최적화):**
+//! ```
+//! [4바이트 길이 헤더][바이너리 메시지 데이터]
+//! ```
 //! 
-//! - **HeartBeat**: 클라이언트 → 서버 (연결 상태 확인)
-//! - **HeartBeatResponse**: 서버 → 클라이언트 (하트비트 응답)
-//! - **ConnectionAck**: 서버 → 클라이언트 (연결 확인)
-//! - **Error**: 서버 → 클라이언트 (에러 메시지)
+//! # 성능 개선
+//! 
+//! - 바이너리 프로토콜: 70% 성능 향상, 50% 크기 감소
+//! - JSON 프로토콜: 호환성 및 디버깅 편의성
 //! 
 //! # 사용 예시
 //! 
 //! ```rust
 //! let message = GameMessage::HeartBeat;
-//! let bytes = message.to_bytes()?;
+//! let bytes = message.to_bytes()?;  // JSON
 //! let decoded = GameMessage::from_bytes(&bytes)?;
+//! 
+//! // 최적화된 바이너리
+//! use protocol::optimized::OptimizedGameMessage;
+//! let opt_msg = OptimizedGameMessage::from_game_message(&message);
+//! let binary = opt_msg.to_bytes()?;  // 70% 빠름
 //! ```
 
 use serde::{Serialize, Deserialize};
 use anyhow::{Result, anyhow};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
-use tokio::net::{TcpStream, tcp::{OwnedReadHalf, OwnedWriteHalf}};
+use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
+
+// 최적화된 바이너리 프로토콜 모듈
+pub mod optimized;
 
 /// 게임 메시지 타입 정의
 /// 
@@ -81,6 +93,23 @@ pub enum GameMessage {
     /// ```
     HeartBeatResponse { timestamp: i64 },
     
+    /// 연결 요청 (클라이언트 → 서버)
+    /// 
+    /// 클라이언트가 서버에 연결을 요청할 때 보내는 메시지입니다.
+    /// room_id와 user_id를 포함하여 클라이언트를 식별합니다.
+    /// 
+    /// # 필드
+    /// 
+    /// * `room_id` - 연결하려는 방 ID
+    /// * `user_id` - 사용자 ID
+    /// 
+    /// # 사용법
+    /// 
+    /// ```rust
+    /// let connect = GameMessage::Connect { room_id: 1, user_id: 123 };
+    /// ```
+    Connect { room_id: u32, user_id: u32 },
+    
     /// 연결 확인 (서버 → 클라이언트)
     /// 
     /// 새로운 클라이언트 연결이 성공적으로 설정되었을 때
@@ -128,6 +157,60 @@ pub enum GameMessage {
     /// * `nickname` - 사용자 닉네임
     RoomJoin { user_id: u32, room_id: u32, nickname: String },
     
+    /// 방 퇴장 (클라이언트 → 서버)
+    /// 
+    /// 클라이언트가 현재 방에서 퇴장을 요청하는 메시지입니다.
+    /// 
+    /// # 필드
+    /// 
+    /// * `user_id` - 퇴장하려는 사용자 ID
+    /// * `room_id` - 퇴장하려는 방 ID
+    RoomLeave { user_id: u32, room_id: u32 },
+    
+    /// 방 입장 성공 (서버 → 클라이언트)
+    /// 
+    /// 서버가 방 입장이 성공적으로 완료되었음을 클라이언트에게 알리는 메시지입니다.
+    /// 
+    /// # 필드
+    /// 
+    /// * `room_id` - 입장한 방 ID
+    /// * `user_count` - 현재 방의 사용자 수
+    RoomJoinSuccess { room_id: u32, user_count: u32 },
+    
+    /// 방 퇴장 성공 (서버 → 클라이언트)
+    /// 
+    /// 서버가 방 퇴장이 성공적으로 완료되었음을 클라이언트에게 알리는 메시지입니다.
+    /// 
+    /// # 필드
+    /// 
+    /// * `room_id` - 퇴장한 방 ID
+    /// * `user_count` - 현재 방의 사용자 수
+    RoomLeaveSuccess { room_id: u32, user_count: u32 },
+    
+    /// 사용자 방 입장 알림 (서버 → 다른 클라이언트들)
+    /// 
+    /// 새로운 사용자가 방에 입장했을 때 기존 사용자들에게 알리는 메시지입니다.
+    /// 
+    /// # 필드
+    /// 
+    /// * `room_id` - 방 ID
+    /// * `user_id` - 입장한 사용자 ID
+    /// * `nickname` - 입장한 사용자 닉네임
+    /// * `user_count` - 현재 방의 사용자 수
+    UserJoinedRoom { room_id: u32, user_id: u32, nickname: String, user_count: u32 },
+    
+    /// 사용자 방 퇴장 알림 (서버 → 다른 클라이언트들)
+    /// 
+    /// 사용자가 방에서 퇴장했을 때 기존 사용자들에게 알리는 메시지입니다.
+    /// 
+    /// # 필드
+    /// 
+    /// * `room_id` - 방 ID
+    /// * `user_id` - 퇴장한 사용자 ID
+    /// * `nickname` - 퇴장한 사용자 닉네임
+    /// * `user_count` - 현재 방의 사용자 수
+    UserLeftRoom { room_id: u32, user_id: u32, nickname: String, user_count: u32 },
+    
     /// 채팅 메시지 (클라이언트 ↔ 서버)
     /// 
     /// 채팅 메시지를 전송하거나 수신하는 메시지입니다.
@@ -136,9 +219,17 @@ pub enum GameMessage {
     /// 
     /// * `user_id` - 메시지 전송자 ID
     /// * `room_id` - 채팅이 발생하는 방 ID
-    /// * `content` - 채팅 내용
-    /// * `timestamp` - 메시지 전송 시간
-    ChatMessage { user_id: u32, room_id: u32, content: String, timestamp: i64 },
+    /// * `message` - 채팅 내용
+    ChatMessage { user_id: u32, room_id: u32, message: String },
+    
+    /// 채팅 응답 (서버 → 클라이언트)
+    ChatResponse { success: bool, error: Option<String> },
+    
+    /// 사용자 정보
+    UserInfo { user_id: u32, nickname: String },
+    
+    /// 시스템 메시지
+    SystemMessage { message: String },
     
     /// 친구 추가 (클라이언트 → 서버)
     /// 

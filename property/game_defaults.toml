@@ -1,0 +1,50 @@
+# 게임 기본 속성값 정의
+# Police Thief 게임의 모든 기본 속성값을 중앙 관리합니다.
+
+[player]
+# 플레이어 기본 스탯
+max_health = 1000
+initial_health = 1000
+max_mana = 500
+initial_mana = 500
+attack = 100
+defense = 50
+movement_speed = 5.0  # Unity units per second
+attack_speed = 1.0    # attacks per second
+critical_chance = 5.0 # 5%
+critical_damage = 1.5 # 150%
+
+# 시야 및 공격 범위
+vision_range = 50.0   # 게임 단위
+attack_range = 10.0   # 게임 단위
+
+[spawn]
+# 스폰 위치
+default_x = 0.0
+default_y = 0.0
+default_z = 0.0
+
+
+[network]
+# 네트워크 동기화 설정
+position_sync_rate = 20  # Hz (초당 20회)
+state_sync_rate = 10     # Hz (초당 10회)
+interpolation_delay_ms = 100  # 보간 지연
+
+[room]
+# 방 설정
+max_players_per_room = 20
+min_players_to_start = 2
+room_timeout_seconds = 3600  # 1시간
+
+[combat]
+# 전투 시스템
+damage_variance = 0.1  # ±10% 데미지 편차
+dodge_chance_base = 5.0  # 5% 기본 회피 확률
+block_damage_reduction = 0.5  # 방어 시 50% 데미지 감소
+
+[performance]
+# 성능 최적화 설정
+tick_rate = 60  # 서버 틱 레이트
+max_message_size = 65536  # 64KB
+message_compression_threshold = 1024  # 1KB 이상 압축

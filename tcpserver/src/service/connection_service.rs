@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use tokio::net::TcpStream;
 use tokio::sync::{Mutex, broadcast};
 use tokio::time::{Duration, Instant};
-use tracing::{info, error, warn, debug};
+use tracing::{info, warn, debug};
 use chrono;
 
 use crate::protocol::GameMessage;
@@ -86,7 +86,7 @@ impl UserConnection {
     }
     
     pub fn is_heartbeat_timeout(&self) -> bool {
-        self.last_heartbeat.elapsed() > Duration::from_secs(30)
+        self.last_heartbeat.elapsed() > Duration::from_secs(1800) // 30분 타임아웃
     }
 }
 
@@ -198,6 +198,64 @@ impl ConnectionService {
             self.remove_connection(user_id).await;
             return Err(anyhow::anyhow!(tcp_error));
         }
+        
+        // 메시지 수신 처리 시작
+        self.start_message_handling(user_id, connection.clone(), reader).await;
+        
+        info!("✅ 사용자 {} 연결 완료 ({})", user_id, addr);
+        Ok(user_id)
+    }
+    
+    /// 특정 사용자 ID로 새로운 연결 처리
+    /// 
+    /// 클라이언트가 제공한 user_id를 사용하여 연결을 등록합니다.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `stream` - 클라이언트 TCP 스트림
+    /// * `addr` - 클라이언트 주소 문자열
+    /// * `user_id` - 클라이언트가 제공한 사용자 ID
+    /// 
+    /// # Returns
+    /// 
+    /// * `Result<u32>` - 성공 시 사용자 ID, 실패 시 에러
+    pub async fn handle_new_connection_with_id(&self, stream: TcpStream, addr: String, user_id: u32) -> Result<u32> {
+        // 최대 연결 수 확인
+        let current_count = self.get_connection_count().await;
+        if current_count >= self.max_connections as usize {
+            warn!("최대 연결 수 초과: {}/{}", current_count, self.max_connections);
+            return Err(anyhow!("서버가 가득 참"));
+        }
+        
+        debug!("사용자 {} 연결 요청: {}", user_id, addr);
+        
+        // 기존 연결이 있으면 제거
+        if self.connections.lock().await.contains_key(&user_id) {
+            warn!("사용자 {}의 기존 연결을 제거합니다", user_id);
+            self.remove_connection(user_id).await;
+        }
+        
+        // 연결 생성 및 저장
+        let (reader, writer) = stream.into_split();
+        let connection = Arc::new(Mutex::new(UserConnection {
+            user_id,
+            addr: addr.clone(),
+            last_heartbeat: Instant::now(),
+            writer: Arc::new(Mutex::new(BufWriter::new(writer))),
+            connected_at: Instant::now(),
+        }));
+        
+        {
+            let mut connections = self.connections.lock().await;
+            connections.insert(user_id, connection.clone());
+        }
+        
+        // 통계 업데이트
+        self.update_connection_stats(|stats| {
+            stats.total_connections += 1;
+            stats.current_connections += 1;
+            stats.peak_connections = stats.peak_connections.max(stats.current_connections);
+        }).await;
         
         // 메시지 수신 처리 시작
         self.start_message_handling(user_id, connection.clone(), reader).await;

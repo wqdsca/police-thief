@@ -152,9 +152,18 @@ impl MessageService {
             GameMessage::ConnectionAck { .. } => "connection_ack".to_string(),
             GameMessage::Error { .. } => "error".to_string(),
             GameMessage::RoomJoin { .. } => "room_join".to_string(),
+            GameMessage::RoomLeave { .. } => "room_leave".to_string(),
+            GameMessage::RoomJoinSuccess { .. } => "room_join_success".to_string(),
+            GameMessage::RoomLeaveSuccess { .. } => "room_leave_success".to_string(),
+            GameMessage::UserJoinedRoom { .. } => "user_joined_room".to_string(),
+            GameMessage::UserLeftRoom { .. } => "user_left_room".to_string(),
             GameMessage::ChatMessage { .. } => "chat".to_string(),
             GameMessage::FriendAdd { .. } => "friend_add".to_string(),
             GameMessage::FriendRemove { .. } => "friend_remove".to_string(),
+            GameMessage::Connect { .. } => "connect".to_string(),
+            GameMessage::ChatResponse { .. } => "chat_response".to_string(),
+            GameMessage::UserInfo { .. } => "user_info".to_string(),
+            GameMessage::SystemMessage { .. } => "system_message".to_string(),
         }
     }
     

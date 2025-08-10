@@ -1,0 +1,75 @@
+# 1. 프로젝트 플래닝
+
+`/sc:design --api --ddd --plan --persona-architect --persona-scribe=ko`
+
+# 2. 프론트 개발
+
+`/sc:build --react --magic --tdd --persona-frontend --persona-scribe=ko`
+
+# 3. 백엔드 개발
+
+`/sc:build --api -tdd --converage --persona-backend --persona-scribe=ko`
+
+# 4. 퀄리티 체크
+
+`/sc:review --quality --evidence --persona-qa --persona-scribe=ko`
+
+# 5. 보안 스캔
+
+`/sc:scan --security --owasp --persona-security --persona-scribe=ko`
+
+# 6. 성능 최적화
+
+`/sc:improve --performance --iterate --persona-performance --persona-scribe=ko`
+
+# 7. 배포 준비
+
+`/sc:deploy --env staging --plan --persona-architect --persona-scribe=ko`
+트러블슈팅
+# 1. 문제 분석
+
+`/sc:troubleshoot --investigate --prod --persona-analyzer --persona-scribe=ko`
+
+# 2. 근본 원인 분석
+
+`/sc:troubleshoot --prod --five-whys --seq --persona-analyzer --persona-scribe=ko`
+
+# 3. 성능 분석
+
+`/sc:analyze --profile --perf --seq --persona-performance --persona-scribe=ko`
+
+# 4. 구현 수정
+
+`/sc:improve --quality --threshold 95% --persona-refactorer --persona-scribe=ko`
+클로드 코드 병렬 에이전트 실행 방법
+우리 프로젝트에 테스트 코드 커버리지 80%를 달성하려고 하는데
+코드를 작성하지는 말고 어떤 테스트를 작성해야 커버리지 80%를 달성할 수 있을지 프로젝트 전체를 리서치 해줘.
+유닛테스트만 할거고 UI 테스트는 진행 하지 않을 예정이야.
+**use 10 parallel subagents to research independently as fast as possible**
+클로드 서브 에이전트 생성 방법
+코드 분석 서브 에이전트 생성
+$ claude
+$ /init
+$ /agents
+$ # Create new agent
+$ # Project (.claude/agents/)
+$ # Generate with Claude (recommended)
+$ # 코드 분석 에이전트
+$ # All tools (자동) 선택 후 Continue
+$ # 모델 선택
+$ # Automatic color 선택
+$ # Enter
+프로젝트 적응형 서브 에이전트 생성 프롬프트
+$ claude
+$ # (shift + tab) / (shift + m)을 눌러서 plan mode로 변경
+You are an expert at creating specialized agents for a project. You will design and add these agents as `.md` files in the `.claude/agents` directory.
+
+Here's the plan:
+
+1.  **Analyze and Design:** Carefully analyze the sub-packages of `{project_name}` and design a specialized agent for each one. These agents should handle their specific sub-packages in a highly specialized way.
+2.  **Ensure Uniqueness:** You'll make sure that these new agents don't duplicate the functionality of any existing sub-agents.
+3.  **Adhere to Format:** All new sub-agents **must be written in the exact format of existing `.md` files** within the `.claude/agents` directory. This is critical for them to function correctly.
+4.  **Architect the System:** You'll use your expertise to ultra-think and design the overall architecture, ensuring these new agents integrate seamlessly.
+5.  **Update `CLAUDE.md`:** After creating all the new sub-agents, you'll update the `CLAUDE.md` file. The update will excessively use these new sub-agents concurrently to achieve maximum efficiency for the project.
+
+think longer, ultrathink.

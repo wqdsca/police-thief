@@ -1,26 +1,34 @@
 use anyhow::{Context, Result};
 use redis::AsyncCommands;
 use serde::{de::DeserializeOwned, Serialize};
+use std::sync::Arc;
 
 use crate::config::redis_config::RedisConfig;
 use crate::service::redis::core::redis_get_key::KeyType;
 use crate::service::redis::core::retry_operation::RETRY_OPT;
+use crate::security::{RedisCommandValidator, RedisCommandValidatorConfig};
 
 #[derive(Debug, Clone)]
 pub struct HashHelper {
     conn: RedisConfig,
     key: KeyType,
     ttl: Option<u32>,
+    validator: Arc<RedisCommandValidator>,
 }
 
 impl HashHelper {
     pub fn new(conn: RedisConfig, key: KeyType, ttl: Option<u32>, _limit: Option<u32>) -> Self {
-        Self { conn, key, ttl }
+        let validator = Arc::new(
+            RedisCommandValidator::new(RedisCommandValidatorConfig::default())
+                .expect("Redis 명령어 검증기 초기화 실패")
+        );
+        
+        Self { conn, key, ttl, validator }
     }
 
 
-    /// HSET MULTIPLE 
- 
+    /// HSET MULTIPLE
+    /// 
     /// HSET field <- JSON(value). ttl이 설정되어 있으면 HSET+EXPIRE 파이프라인.
     /// 반환: 추가된 필드 수(0 또는 1)
     /// 
@@ -32,6 +40,14 @@ impl HashHelper {
     ) -> Result<u64> {
         let key = self.key.get_key(&id);
         let json = serde_json::to_string(value).context("HashHelper: JSON 직렬화 실패")?;
+        
+        // 🔐 보안 검증: Redis 명령어 및 입력값 검증
+        self.validator.validate_operation(
+            "HSET", 
+            &key, 
+            Some(field), 
+            Some(json.as_bytes())
+        ).context("HashHelper: 보안 검증 실패")?;
 
         let ttl_opt = self.ttl;
         RETRY_OPT
@@ -87,6 +103,10 @@ impl HashHelper {
         field: &str,
     ) -> Result<Option<T>> {
         let key = self.key.get_key(&id);
+        
+        // 🔐 보안 검증: Redis HGET 명령어 및 키/필드 검증
+        self.validator.validate_operation("HGET", &key, Some(field), None)
+            .context("HashHelper: HGET 보안 검증 실패")?;
 
         let raw: Option<String> = RETRY_OPT
             .execute::<Option<String>, _, _>(|| {
@@ -147,6 +167,10 @@ impl HashHelper {
     /// HDEL field(s) -> 삭제된 필드 수
     pub async fn delete_hash_field(&self, id: u16, field: &str) -> Result<u64> {
         let key = self.key.get_key(&id);
+        
+        // 🔐 보안 검증: Redis HDEL 명령어 및 키/필드 검증
+        self.validator.validate_operation("HDEL", &key, Some(field), None)
+            .context("HashHelper: HDEL 보안 검증 실패")?;
 
         RETRY_OPT
             .execute::<u64, _, _>(|| {

@@ -1,0 +1,407 @@
+{
+  "rudp_skills_architecture": {
+    "metadata": {
+      "version": "1.0.0",
+      "description": "RUDP 서버 스킬 시스템 아키텍처 정의",
+      "last_updated": "2025-08-10",
+      "total_skill_types": 10,
+      "total_buff_types": 5,
+      "total_debuff_types": 5,
+      "server_type": "High-Performance RUDP Game Server"
+    },
+    
+    "skill_types": {
+      "BasicAttack": {
+        "id": "basic_attack",
+        "name": "기본 공격",
+        "description": "일반적인 물리 공격",
+        "category": "공격",
+        "requires_target": true,
+        "can_be_aoe": false,
+        "typical_properties": ["damage", "range", "cooldown"]
+      },
+      "Heal": {
+        "id": "heal",
+        "name": "치유",
+        "description": "체력 회복 스킬",
+        "category": "회복",
+        "requires_target": true,
+        "can_be_aoe": true,
+        "typical_properties": ["healing", "range", "mana_cost"]
+      },
+      "Teleport": {
+        "id": "teleport",
+        "name": "순간이동",
+        "description": "즉시 위치 이동",
+        "category": "이동",
+        "requires_target": false,
+        "can_be_aoe": false,
+        "typical_properties": ["range", "mana_cost", "cast_time"]
+      },
+      "Shield": {
+        "id": "shield",
+        "name": "보호막",
+        "description": "데미지 흡수 보호막 생성",
+        "category": "방어",
+        "requires_target": true,
+        "can_be_aoe": true,
+        "typical_properties": ["shield_amount", "duration", "mana_cost"]
+      },
+      "AreaDamage": {
+        "id": "area_damage",
+        "name": "광역 공격",
+        "description": "범위 내 모든 적에게 데미지",
+        "category": "공격",
+        "requires_target": false,
+        "can_be_aoe": true,
+        "typical_properties": ["damage", "area_of_effect", "cast_time"]
+      },
+      "Buff": {
+        "id": "buff",
+        "name": "강화 효과",
+        "description": "유리한 상태 효과 부여",
+        "category": "지원",
+        "requires_target": true,
+        "can_be_aoe": true,
+        "typical_properties": ["duration", "effect_strength", "mana_cost"]
+      },
+      "Debuff": {
+        "id": "debuff",
+        "name": "약화 효과",
+        "description": "불리한 상태 효과 부여",
+        "category": "방해",
+        "requires_target": true,
+        "can_be_aoe": true,
+        "typical_properties": ["duration", "effect_strength", "range"]
+      },
+      "Summon": {
+        "id": "summon",
+        "name": "소환",
+        "description": "동료 또는 오브젝트 소환",
+        "category": "소환",
+        "requires_target": false,
+        "can_be_aoe": false,
+        "typical_properties": ["summon_duration", "summon_health", "mana_cost"]
+      },
+      "Transform": {
+        "id": "transform",
+        "name": "변신",
+        "description": "플레이어 형태 변경",
+        "category": "변화",
+        "requires_target": false,
+        "can_be_aoe": false,
+        "typical_properties": ["duration", "stat_modifiers", "mana_cost"]
+      },
+      "Custom": {
+        "id": "custom",
+        "name": "커스텀",
+        "description": "특수한 커스텀 스킬",
+        "category": "특수",
+        "requires_target": "varies",
+        "can_be_aoe": "varies",
+        "typical_properties": ["varies"]
+      }
+    },
+    
+    "buff_types": {
+      "AttackBoost": {
+        "id": "attack_boost",
+        "name": "공격력 증가",
+        "description": "공격력을 일정 시간 증가시킴",
+        "effect_type": "stat_increase",
+        "target_stat": "attack_power",
+        "stacks": true,
+        "typical_duration_seconds": 60,
+        "typical_boost_percentage": 20
+      },
+      "SpeedBoost": {
+        "id": "speed_boost", 
+        "name": "이동속도 증가",
+        "description": "이동속도를 일정 시간 증가시킴",
+        "effect_type": "stat_increase",
+        "target_stat": "movement_speed",
+        "stacks": true,
+        "typical_duration_seconds": 30,
+        "typical_boost_percentage": 25
+      },
+      "DefenseBoost": {
+        "id": "defense_boost",
+        "name": "방어력 증가", 
+        "description": "방어력을 일정 시간 증가시킴",
+        "effect_type": "stat_increase",
+        "target_stat": "defense",
+        "stacks": true,
+        "typical_duration_seconds": 120,
+        "typical_boost_percentage": 15
+      },
+      "HealthRegeneration": {
+        "id": "health_regen",
+        "name": "체력 재생",
+        "description": "시간당 체력을 지속적으로 회복",
+        "effect_type": "continuous_heal",
+        "target_stat": "health",
+        "stacks": true,
+        "typical_duration_seconds": 30,
+        "typical_heal_per_second": 5
+      },
+      "ManaRegeneration": {
+        "id": "mana_regen",
+        "name": "마나 재생",
+        "description": "시간당 마나를 지속적으로 회복",
+        "effect_type": "continuous_restore",
+        "target_stat": "mana",
+        "stacks": true,
+        "typical_duration_seconds": 45,
+        "typical_restore_per_second": 3
+      }
+    },
+    
+    "debuff_types": {
+      "Poison": {
+        "id": "poison",
+        "name": "독",
+        "description": "시간당 지속적으로 체력 감소",
+        "effect_type": "continuous_damage",
+        "target_stat": "health",
+        "stacks": true,
+        "typical_duration_seconds": 20,
+        "typical_damage_per_second": 8
+      },
+      "Slow": {
+        "id": "slow",
+        "name": "둔화",
+        "description": "이동속도를 일정 시간 감소시킴",
+        "effect_type": "stat_decrease",
+        "target_stat": "movement_speed",
+        "stacks": false,
+        "typical_duration_seconds": 15,
+        "typical_reduction_percentage": 40
+      },
+      "Silence": {
+        "id": "silence",
+        "name": "침묵",
+        "description": "스킬 사용을 일정 시간 금지",
+        "effect_type": "ability_lock",
+        "target_stat": "skill_usage",
+        "stacks": false,
+        "typical_duration_seconds": 8,
+        "blocks_all_skills": true
+      },
+      "Stun": {
+        "id": "stun",
+        "name": "기절",
+        "description": "모든 행동을 일정 시간 금지",
+        "effect_type": "complete_disable",
+        "target_stat": "all_actions",
+        "stacks": false,
+        "typical_duration_seconds": 3,
+        "blocks_movement": true,
+        "blocks_skills": true,
+        "blocks_attacks": true
+      },
+      "Blind": {
+        "id": "blind",
+        "name": "실명",
+        "description": "시야 범위를 일정 시간 감소시킴",
+        "effect_type": "vision_impairment",
+        "target_stat": "vision_range",
+        "stacks": false,
+        "typical_duration_seconds": 12,
+        "typical_vision_reduction_percentage": 70
+      }
+    },
+    
+    "example_skills": {
+      "fireball": {
+        "skill_id": 1,
+        "name": "파이어볼",
+        "korean_name": "파이어볼",
+        "skill_type": "BasicAttack",
+        "description": "강력한 화염구를 발사하여 대상에게 데미지를 입힘",
+        "properties": {
+          "mana_cost": 30,
+          "cooldown_ms": 3000,
+          "cast_time_ms": 1000,
+          "range": 500.0,
+          "area_of_effect": 100.0,
+          "base_damage": 50,
+          "base_healing": 0,
+          "level_scaling": 1.2
+        },
+        "visual_effects": {
+          "cast_animation": "fire_cast",
+          "projectile_effect": "fireball_projectile",
+          "impact_effect": "fire_explosion"
+        }
+      },
+      "healing_light": {
+        "skill_id": 2,
+        "name": "힐링 라이트",
+        "korean_name": "치유의 빛",
+        "skill_type": "Heal",
+        "description": "신성한 빛으로 대상의 체력을 회복시킴",
+        "properties": {
+          "mana_cost": 25,
+          "cooldown_ms": 2000,
+          "cast_time_ms": 800,
+          "range": 300.0,
+          "area_of_effect": 50.0,
+          "base_damage": 0,
+          "base_healing": 40,
+          "level_scaling": 1.1
+        },
+        "visual_effects": {
+          "cast_animation": "holy_cast",
+          "healing_effect": "golden_light",
+          "completion_effect": "sparkle_burst"
+        }
+      },
+      "teleport": {
+        "skill_id": 3,
+        "name": "텔레포트",
+        "korean_name": "순간이동",
+        "skill_type": "Teleport",
+        "description": "즉시 지정된 위치로 순간이동",
+        "properties": {
+          "mana_cost": 50,
+          "cooldown_ms": 10000,
+          "cast_time_ms": 500,
+          "range": 800.0,
+          "area_of_effect": null,
+          "base_damage": 0,
+          "base_healing": 0,
+          "level_scaling": 1.0
+        },
+        "visual_effects": {
+          "cast_animation": "teleport_charge",
+          "disappear_effect": "blue_portal",
+          "appear_effect": "blue_portal"
+        }
+      }
+    },
+    
+    "skill_system_architecture": {
+      "core_components": {
+        "SkillDefinition": {
+          "description": "각 스킬의 기본 정의와 속성",
+          "fields": [
+            "skill_id: u32",
+            "name: String", 
+            "skill_type: SkillType",
+            "mana_cost: u32",
+            "cooldown_ms: u32",
+            "cast_time_ms: u32", 
+            "range: f32",
+            "area_of_effect: Option<f32>",
+            "base_damage: u32",
+            "base_healing: u32",
+            "level_scaling: f32"
+          ]
+        },
+        "SkillEffect": {
+          "description": "스킬 사용 시 적용되는 효과",
+          "fields": [
+            "effect_type: SkillEffectType",
+            "target: EffectTarget",
+            "value: i32",
+            "duration_ms: u32",
+            "tick_interval_ms: Option<u32>"
+          ]
+        },
+        "StatusEffect": {
+          "description": "플레이어에게 적용되는 지속 효과",
+          "fields": [
+            "effect_id: u32",
+            "name: String",
+            "effect_type: StatusEffectType", 
+            "remaining_duration: f32",
+            "stack_count: u32",
+            "effect_value: i32"
+          ]
+        }
+      },
+      
+      "skill_execution_flow": [
+        "1. 스킬 사용 요청 수신 (use_skill)",
+        "2. 전제 조건 검증 (mana, cooldown, range)",
+        "3. 스킬 정의 조회 (skill_definitions HashMap)",
+        "4. 타입별 처리 로직 실행 (match SkillType)",
+        "5. 데미지/힐링 계산 (level scaling 적용)",
+        "6. 대상 검색 및 효과 적용",
+        "7. 상태 효과 추가/제거",
+        "8. 쿨다운 설정",
+        "9. 결과 브로드캐스트"
+      ],
+      
+      "performance_optimizations": [
+        "HashMap 기반 빠른 스킬 조회",
+        "타입별 match 패턴으로 효율적 분기",
+        "미리 계산된 스킬 정의 캐싱",
+        "범위 검사 최적화 (distance_squared)",
+        "배치 상태 효과 처리"
+      ],
+      
+      "redis_integration": {
+        "description": "Redis를 통한 스킬 상태 관리",
+        "key_patterns": {
+          "player_cooldowns": "player:{player_id}:cooldowns",
+          "active_effects": "player:{player_id}:status_effects",
+          "skill_usage_stats": "stats:skills:{skill_id}:usage"
+        },
+        "operations": [
+          "쿨다운 상태 저장/조회",
+          "상태 효과 지속시간 관리", 
+          "스킬 사용 통계 수집"
+        ]
+      }
+    },
+    
+    "configuration": {
+      "default_values": {
+        "global_cooldown_ms": 1000,
+        "max_status_effects_per_player": 20,
+        "status_effect_tick_interval_ms": 1000,
+        "skill_range_check_precision": 0.1,
+        "level_scaling_cap": 5.0
+      },
+      
+      "balance_parameters": {
+        "damage_scaling": {
+          "basic_attack": 1.0,
+          "area_damage": 0.8,
+          "magic_attack": 1.2
+        },
+        "mana_cost_scaling": {
+          "low_level": 1.0,
+          "mid_level": 1.5,
+          "high_level": 2.0
+        },
+        "cooldown_reduction": {
+          "min_cooldown_ms": 500,
+          "max_reduction_percentage": 80
+        }
+      }
+    },
+    
+    "error_handling": {
+      "error_types": [
+        "SkillNotFound",
+        "InsufficientMana", 
+        "SkillOnCooldown",
+        "InvalidTarget",
+        "OutOfRange",
+        "PlayerDead",
+        "InvalidSkillType"
+      ],
+      
+      "validation_checks": [
+        "플레이어 생존 상태 확인",
+        "마나 보유량 검증",
+        "쿨다운 상태 확인", 
+        "대상 유효성 검사",
+        "거리 제한 확인",
+        "스킬 정의 존재 확인"
+      ]
+    }
+  }
+}

@@ -89,7 +89,6 @@ pub mod tool;
 /// 통합 테스트 모듈
 /// 
 /// 서버의 전체 기능을 테스트하는 통합 테스트들을 포함합니다.
-#[cfg(test)]
 pub mod tests;
 
 // 주요 타입들 재출장
@@ -107,7 +106,7 @@ pub use service::{ConnectionService, HeartbeatService};
 /// 
 /// 기본적인 TCP 서버 기능을 제공하는 간단한 서비스입니다.
 /// 빠른 프로토타이핑이나 테스트에 적합합니다.
-pub use service::SimpleTcpService;
+pub use service::simple_services::SimpleTcpService;
 
 /// 환경 설정 타입들
 /// 

@@ -19,6 +19,27 @@ flate2.workspace = true
 crc32fast.workspace = true
 thiserror.workspace = true
 sqlx.workspace = true
+dashmap.workspace = true
+rayon.workspace = true
+crossbeam-queue = "0.3"
+num_cpus = "1.0"
+bytes.workspace = true
+lru = "0.12"
+
+# 로깅 시스템 의존성
+tracing-subscriber.workspace = true
+
+# 보안 관련 의존성
+bcrypt = "0.15"
+regex = "1.10"
+hex = "0.4"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+sha2 = "0.10"
+
+[[bin]]
+name = "run_security_audit"
+path = "src/bin/run_security_audit.rs"
 
 [dev-dependencies]
 tokio-test.workspace = true
+tempfile = "3.0"

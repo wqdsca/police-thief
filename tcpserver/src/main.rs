@@ -8,7 +8,7 @@
 use anyhow::{Context, Result};
 use tracing::{info, error};
 use std::sync::Arc;
-use tokio::net::{TcpListener, TcpStream};
+use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 
 mod config;
@@ -35,7 +35,7 @@ pub struct SimpleTcpServer {
 
 impl SimpleTcpServer {
     /// 새로운 간단한 TCP 서버 생성
-    pub fn new() -> Self {
+    pub async fn new() -> Self {
         let connection_service = Arc::new(ConnectionService::new(1000));
         let heartbeat_service = Arc::new(HeartbeatService::with_default_config(connection_service.clone()));
         let message_service = Arc::new(MessageService::new(connection_service.clone()));
@@ -46,11 +46,18 @@ impl SimpleTcpServer {
             heartbeat_service.clone(),
             message_service.clone(),
         ));
-        let connection_handler = Arc::new(ConnectionHandler::new(
+        let mut connection_handler_temp = ConnectionHandler::new(
             connection_service.clone(),
             heartbeat_service.clone(),
             message_service.clone(),
-        ));
+        );
+        
+        // Redis 초기화 시도
+        if let Err(e) = connection_handler_temp.with_redis().await {
+            tracing::warn!("Redis 연결 실패 (계속 진행): {}", e);
+        }
+        
+        let connection_handler = Arc::new(connection_handler_temp);
         
         Self {
             connection_service,
@@ -158,7 +165,7 @@ async fn main() -> Result<()> {
     info!("====================================");
     
     // TCP 서버 시작
-    let server = SimpleTcpServer::new();
+    let server = SimpleTcpServer::new().await;
     
     // Ctrl+C 시그널 처리
     let server_ref = Arc::new(Mutex::new(server));

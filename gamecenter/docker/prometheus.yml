@@ -1,0 +1,58 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  # Prometheus 자체 모니터링
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Redis 모니터링
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+    metrics_path: /metrics
+
+  # gRPC 서버 모니터링 (메트릭 엔드포인트 구현 필요)
+  - job_name: 'grpc-service'
+    static_configs:
+      - targets: ['grpc-service:8080']  # 메트릭 포트
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  # TCP 서버 모니터링 (메트릭 엔드포인트 구현 필요)
+  - job_name: 'tcp-service'
+    static_configs:
+      - targets: ['tcp-service:8080']   # 메트릭 포트
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  # RUDP 서버 모니터링 (메트릭 엔드포인트 구현 필요)
+  - job_name: 'rudp-service'
+    static_configs:
+      - targets: ['rudp-service:8080']  # 메트릭 포트
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  # 통합 서버 모니터링
+  - job_name: 'gamecenter-unified'
+    static_configs:
+      - targets: ['gamecenter-unified:8080']  # 메트릭 포트
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  # Node Exporter (시스템 메트릭)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093

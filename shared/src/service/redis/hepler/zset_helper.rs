@@ -6,6 +6,9 @@ use crate::config::redis_config::RedisConfig;
 use crate::service::redis::core::redis_get_key::KeyType;
 use crate::service::redis::core::retry_operation::RETRY_OPT;
 
+/// 타입 별칭들
+type ScoreRange = Vec<(String, f64)>;
+
 #[derive(Debug, Clone)]
 pub struct ZSetHelper {
     conn: RedisConfig,
@@ -402,7 +405,7 @@ impl ZSetHelper {
     pub async fn get_zset_stats(&self, id: u16) -> Result<(u64, f64, f64)> {
         let key = self.key.get_key(&id);
 
-        let (member_count, min_range, max_range): (u64, Vec<(String, f64)>, Vec<(String, f64)>) =
+        let (member_count, min_range, max_range): (u64, ScoreRange, ScoreRange) =
             RETRY_OPT.execute::<(u64, Vec<(String, f64)>, Vec<(String, f64)>), _, _>(|| {
                 let key = key.clone();
                 async move {

@@ -2,7 +2,7 @@ use jsonwebtoken::{encode, decode, Header, Validation, Algorithm, EncodingKey, D
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use tonic::{Request, Status};
-use tracing::{info, error};
+use tracing;
 // use chrono::{Utc, Duration};
 
 /// JWT에 포함될 클레임 구조체
@@ -21,6 +21,8 @@ pub struct TokenService {
     secret_key: String,
     /// 사용할 서명 알고리즘 (예: HS256)
     algorithm: Algorithm,
+    /// 토큰 만료 시간 (시간 단위)
+    expiration_hours: i64,
 }
 
 impl TokenService {
@@ -33,9 +35,18 @@ impl TokenService {
     /// # 예외
     /// - `algorithm` 파싱 실패 시 `Algorithm::HS256`로 대체됩니다.
     pub fn new(secret_key: String, algorithm: String) -> Self {
+        use std::env;
+        
+        // 토큰 만료 시간 환경변수에서 로드
+        let expiration_hours = env::var("JWT_EXPIRATION_HOURS")
+            .unwrap_or_else(|_| "1".to_string()) // 보안상 짧은 기본값
+            .parse()
+            .unwrap_or(1);
+            
         Self {
             secret_key,
             algorithm: Algorithm::from_str(&algorithm).unwrap_or(Algorithm::HS256),
+            expiration_hours,
         }
     }
 
@@ -47,16 +58,26 @@ impl TokenService {
     /// # 반환
     /// - 성공 시 JWT 토큰 문자열
     /// - 실패 시 `anyhow::Error`
+    ///
+    /// # 주의
+    /// - 토큰 만료 시간은 JWT_EXPIRATION_HOURS 환경변수로 설정 가능
     pub fn generate_token(&self, user_id: i32) -> anyhow::Result<String> {
-        let expiration = (chrono::Utc::now() + chrono::Duration::hours(1)).timestamp() as usize;
+        let expiration = (chrono::Utc::now() + chrono::Duration::hours(self.expiration_hours)).timestamp() as usize;
+        
+        tracing::debug!(
+            "🔑 Generating JWT token for user_id={}, expiration_hours={}", 
+            user_id, self.expiration_hours
+        );
 
         let claims = Claims {
             sub: user_id,
             exp: expiration,
         };
 
-        let mut header = Header::default();
-        header.alg = self.algorithm;
+        let header = Header {
+            alg: self.algorithm,
+            ..Default::default()
+        };
 
         let token = encode(
             &header,
@@ -97,6 +118,7 @@ impl TokenService {
     /// 
     /// # Returns
     /// * `Result<T, Status>` - 콜백 함수의 결과 또는 에러
+    #[allow(clippy::result_large_err)]
     pub fn with_auth<T, F>(&self, req: &Request<()>, callback: F) -> Result<T, Status>
     where
         F: FnOnce(i32) -> Result<T, Status>,
@@ -120,14 +142,41 @@ impl TokenService {
             return Err(Status::invalid_argument("Empty token"));
         }
         
-        // 토큰 검증
+        // 토큰 검증 및 보안 로깅
         match self.verify_token(&token) {
             Ok(user_id) => {
-                info!("✅ JWT 토큰 검증 성공: user_id={}", user_id);
+                tracing::info!(
+                    target: "security::auth",
+                    user_id = %user_id,
+                    token_length = %token.len(),
+                    expiration_hours = %self.expiration_hours,
+                    "✅ JWT authentication successful"
+                );
                 callback(user_id)
             }
             Err(e) => {
-                error!("❌ JWT 토큰 검증 실패: error={}", e);
+                tracing::warn!(
+                    target: "security::auth_failure",
+                    error = %e,
+                    token_length = %token.len(),
+                    token_prefix = %&token[..std::cmp::min(token.len(), 20)],
+                    expiration_hours = %self.expiration_hours,
+                    "❌ JWT authentication failed - potential security incident"
+                );
+                
+                // 공격 패턴 분석
+                if token.len() < 10 {
+                    tracing::warn!(
+                        target: "security::suspicious_activity",
+                        "Suspiciously short token - possible brute force attempt"
+                    );
+                } else if token.len() > 2048 {
+                    tracing::warn!(
+                        target: "security::suspicious_activity",
+                        "Suspiciously long token - possible DoS attempt"
+                    );
+                }
+                
                 Err(Status::unauthenticated("Invalid or expired token"))
             }
         }
@@ -141,6 +190,7 @@ impl TokenService {
     /// 
     /// # Returns
     /// * `Result<T, Status>` - 콜백 함수의 결과 또는 에러
+    #[allow(clippy::result_large_err)]
     pub fn with_optional_auth<T, F>(&self, req: &Request<()>, callback: F) -> Result<T, Status>
     where
         F: FnOnce(Option<i32>) -> Result<T, Status>,
@@ -170,14 +220,22 @@ impl TokenService {
             return callback(None);
         }
         
-        // 토큰 검증 시도
+        // 선택적 토큰 검증 시도
         match self.verify_token(&token) {
             Ok(user_id) => {
-                info!("✅ JWT 토큰 검증 성공: user_id={}", user_id);
+                tracing::info!(
+                    target: "security::optional_auth",
+                    user_id = %user_id,
+                    "✅ Optional JWT authentication successful"
+                );
                 callback(Some(user_id))
             }
             Err(e) => {
-                error!("❌ JWT 토큰 검증 실패: error={}", e);
+                tracing::debug!(
+                    target: "security::optional_auth",
+                    error = %e,
+                    "❌ Optional JWT authentication failed - proceeding without authentication"
+                );
                 callback(None)
             }
         }
@@ -205,6 +263,7 @@ impl TokenService {
     /// 
     /// # Returns
     /// * `Result<T, Status>` - 콜백 함수의 결과 또는 에러
+    #[allow(clippy::result_large_err)]
     pub fn with_conditional_auth<T, F>(&self, req: &Request<()>, callback: F) -> Result<T, Status>
     where
         F: FnOnce(Option<i32>) -> Result<T, Status>,

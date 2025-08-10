@@ -6,6 +6,9 @@ use crate::config::redis_config::RedisConfig;
 use crate::service::redis::core::redis_get_key::KeyType;
 use crate::service::redis::core::retry_operation::RETRY_OPT;
 
+/// 타입 별칭들
+type GeoScoreRange = Vec<(String, f64)>;
+
 #[derive(Clone)]
 pub struct GeoHelper {
     conn: RedisConfig,
@@ -390,7 +393,7 @@ impl GeoHelper {
                         .cmd("ZRANGE").arg(&key).arg(0).arg(0).arg("WITHSCORES")
                         .cmd("ZREVRANGE").arg(&key).arg(0).arg(0).arg("WITHSCORES");
                     
-                    let (card, min_range, max_range): (u64, Vec<(String, f64)>, Vec<(String, f64)>) = p
+                    let (card, min_range, max_range): (u64, GeoScoreRange, GeoScoreRange) = p
                         .query_async(&mut conn)
                         .await
                         .context("GeoHelper: PIPELINE(ZCARD+ZRANGE+ZREVRANGE) 실패")?;

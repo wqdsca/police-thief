@@ -7,6 +7,11 @@ edition = "2021"
 # Shared library
 shared = { path = "../shared" }
 
+# Server components
+grpcserver = { path = "../grpcserver" }
+tcpserver = { path = "../tcpserver" }
+rudpserver = { path = "../rudpserver" }
+
 # Workspace dependencies
 redis.workspace = true
 tokio.workspace = true
@@ -17,6 +22,12 @@ rand.workspace = true
 dotenv.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+tonic.workspace = true
+chrono.workspace = true
+
+# Additional dependencies for server integration
+futures = "0.3"
+tokio-util = "0.7"
 
 [dev-dependencies]
 tokio-test.workspace = true

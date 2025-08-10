@@ -19,3 +19,40 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Temporary files
+*.tmp
+*.bak
+*~
+.#*
+*.swp
+*.swo
+
+# Environment files (keep .env)
+.env.local
+.env.production
+.env.test
+
+# Build artifacts
+/target/
+**/target/
+
+# IDE temporary files
+*.rs.bk
+.vscode/settings.json
+.idea/workspace.xml
+
+# Redis dumps
+dump.rdb
+*.rdb
+
+# Performance test results
+*.csv
+benchmark_results/
+
+# Windows specific temp files
+nul
+$null
+
+# Korean filename issues
+"\353\263\264\354\225\210_*"

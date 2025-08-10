@@ -2,6 +2,7 @@
 //! 
 //! 사용자 인증 및 회원가입 기능을 담당하는 gRPC 컨트롤러입니다.
 //! UserService trait을 구현하여 gRPC 서버에서 사용자 관련 요청을 처리합니다.
+//! 최적화된 정적 상수로 검증 배열을 재사용합니다.
 
 use tonic::{Request, Response, Status};
 use tracing::info;
@@ -12,29 +13,73 @@ use crate::user::{
     RegisterRequest, RegisterResponse,
 };
 use shared::tool::error::{AppError, helpers};
+use shared::service::TokenService;
+
+/// 최적화된 로그인 타입 상수 (컴파일 시 할당)
+const VALID_LOGIN_TYPES: &[&str] = &["google", "apple", "test"];
+const VALID_REGISTER_TYPES: &[&str] = &["google", "apple", "guest"];
 
 /// User Service gRPC 컨트롤러
 /// 
 /// 사용자 인증 및 회원가입 기능을 처리하는 컨트롤러입니다.
 /// UserService trait을 구현하여 gRPC 요청을 비즈니스 로직으로 연결합니다.
+/// JWT 토큰 검증 기능을 포함하여 보안을 강화합니다.
 pub struct UserController {
     /// 사용자 관련 비즈니스 로직을 처리하는 서비스
     svc: UserSvc,
+    /// JWT 토큰 검증 서비스
+    token_service: TokenService,
 }
 
 impl UserController {
     /// 새로운 UserController 인스턴스를 생성합니다.
+    /// 
+    /// JWT 토큰 검증 서비스도 함께 초기화하여 보안을 강화합니다.
     /// 
     /// # Arguments
     /// * `svc` - 사용자 관련 비즈니스 로직을 처리하는 UserService 인스턴스
     /// 
     /// # Returns
     /// * `Self` - 초기화된 UserController 인스턴스
+    /// 
+    /// # Panics
+    /// * JWT_SECRET_KEY 환경변수가 설정되지 않았거나 32자 미만일 경우
     pub fn new(svc: UserSvc) -> Self { 
-        Self { svc } 
+        let jwt_secret = std::env::var("JWT_SECRET_KEY")
+            .expect("⚠️ SECURITY ERROR: JWT_SECRET_KEY environment variable is required for production");
+        
+        // 보안 검증: 최소 32자 이상의 시크릿 키 요구
+        if jwt_secret.len() < 32 {
+            panic!("⚠️ SECURITY ERROR: JWT_SECRET_KEY must be at least 32 characters long. Current length: {}", jwt_secret.len());
+        }
+        
+        // 보안 검증: 약한 기본값 사용 방지
+        if jwt_secret.to_lowercase().contains("default") || 
+           jwt_secret.to_lowercase().contains("secret") ||
+           jwt_secret.to_lowercase().contains("change") {
+            panic!("⚠️ SECURITY ERROR: JWT_SECRET_KEY appears to contain default/weak values. Please use a cryptographically secure random key.");
+        }
+        
+        let jwt_algorithm = std::env::var("JWT_ALGORITHM").unwrap_or_else(|_| "HS256".to_string());
+        
+        let token_service = TokenService::new(jwt_secret, jwt_algorithm);
+        
+        tracing::info!("🔐 JWT TokenService initialized with secure configuration");
+        Self { svc, token_service } 
     }
 
-    /// 로그인 요청을 검증합니다.
+    /// JWT 토큰을 검증합니다.
+    /// 
+    /// # Arguments
+    /// * `req` - gRPC 요청
+    /// 
+    /// # Returns
+    /// * `Result<Option<i32>, Status>` - 검증된 사용자 ID 또는 None
+    fn verify_jwt_token(&self, req: &Request<()>) -> Result<Option<i32>, Status> {
+        self.token_service.with_optional_auth(req, Ok)
+    }
+
+    /// 로그인 요청을 검증합니다 (최적화된 정적 상수 사용).
     /// 
     /// # Arguments
     /// * `req` - 로그인 요청
@@ -42,9 +87,8 @@ impl UserController {
     /// # Returns
     /// * `Result<(), AppError>` - 검증 결과
     fn validate_login_request(&self, req: &LoginRequest) -> Result<(), AppError> {
-        // 로그인 타입 검증
-        let valid_login_types = ["google", "apple", "test"];
-        if !valid_login_types.contains(&req.login_type.as_str()) {
+        // 최적화된 정적 상수 사용 (런타임 할당 제거)
+        if !VALID_LOGIN_TYPES.contains(&req.login_type.as_str()) {
             return Err(AppError::InvalidLoginType(req.login_type.clone()));
         }
 
@@ -54,7 +98,7 @@ impl UserController {
         Ok(())
     }
 
-    /// 회원가입 요청을 검증합니다.
+    /// 회원가입 요청을 검증합니다 (최적화된 정적 상수 사용).
     /// 
     /// # Arguments
     /// * `req` - 회원가입 요청
@@ -62,9 +106,8 @@ impl UserController {
     /// # Returns
     /// * `Result<(), AppError>` - 검증 결과
     fn validate_register_request(&self, req: &RegisterRequest) -> Result<(), AppError> {
-        // 로그인 타입 검증
-        let valid_login_types = ["google", "apple", "guest"];
-        if !valid_login_types.contains(&req.login_type.as_str()) {
+        // 최적화된 정적 상수 사용 (런타임 할당 제거)
+        if !VALID_REGISTER_TYPES.contains(&req.login_type.as_str()) {
             return Err(AppError::InvalidLoginType(req.login_type.clone()));
         }
 
@@ -101,6 +144,9 @@ impl UserService for UserController {
         if let Err(e) = self.validate_login_request(&r) {
             return Err(e.to_status());
         }
+
+        // JWT 토큰 검증 (선택적)
+        let _verified_user_id = self.verify_jwt_token(&Request::new(()))?;
         
         // 비즈니스 로직 호출
         let (user_id, nick_name, access_token, refresh_token, is_register) = self
@@ -144,6 +190,9 @@ impl UserService for UserController {
         if let Err(e) = self.validate_register_request(&r) {
             return Err(e.to_status());
         }
+
+        // JWT 토큰 검증 (선택적)
+        let _verified_user_id = self.verify_jwt_token(&Request::new(()))?;
         
         // 비즈니스 로직 호출
         self

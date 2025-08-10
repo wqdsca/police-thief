@@ -39,6 +39,7 @@ async fn test_grpc_connection() {
 }
 
 /// Room Service 테스트
+#[allow(dead_code)]
 async fn test_room_service(channel: Channel) {
     println!("=== Room Service 테스트 시작 ===");
     
@@ -116,6 +117,7 @@ async fn test_room_service(channel: Channel) {
 }
 
 /// User Service 테스트
+#[allow(dead_code)]
 async fn test_user_service(channel: Channel) {
     println!("=== User Service 테스트 시작 ===");
     

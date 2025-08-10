@@ -195,7 +195,7 @@ impl ServerMessageHandler {
         // 동기 핸들러로 변경 - async 블록 제거
         self.message_service.register_handler("chat", move |user_id, message| {
             match message {
-                GameMessage::ChatMessage { user_id: msg_user_id, room_id, content, timestamp } => {
+                GameMessage::ChatMessage { user_id: msg_user_id, room_id, message } => {
                     if *msg_user_id != user_id {
                         return Ok(Some(GameMessage::Error {
                             code: 400,
@@ -205,7 +205,7 @@ impl ServerMessageHandler {
                     
                     // 채팅 기록은 이벤트 시스템이나 별도 처리로 이동 필요
                     // 현재는 로그만 남김
-                    info!("채팅 메시지 수신: 사용자 {} -> 방 {}: {}", msg_user_id, room_id, content);
+                    info!("채팅 메시지 수신: 사용자 {} -> 방 {}: {}", msg_user_id, room_id, message);
                     Ok(None)
                 }
                 _ => Ok(None)
@@ -347,14 +347,14 @@ impl ServerMessageHandler {
                 }
                 Ok(())
             }
-            GameMessage::ChatMessage { user_id: msg_user_id, room_id: _, content, timestamp: _ } => {
+            GameMessage::ChatMessage { user_id: msg_user_id, room_id: _, message } => {
                 if *msg_user_id != user_id {
                     return Err(anyhow!("사용자 ID 불일치"));
                 }
-                if content.is_empty() {
+                if message.is_empty() {
                     return Err(anyhow!("채팅 내용이 비어있습니다"));
                 }
-                if content.len() > 1000 {
+                if message.len() > 1000 {
                     return Err(anyhow!("채팅 내용이 너무 깁니다"));
                 }
                 Ok(())
@@ -379,6 +379,44 @@ impl ServerMessageHandler {
                     return Err(anyhow!("자기 자신을 친구에서 삭제할 수 없습니다"));
                 }
                 Ok(())
+            }
+            GameMessage::Connect { room_id: _, user_id: msg_user_id } => {
+                // Connect 메시지는 연결 시에만 사용되므로 여기서는 검증만
+                if *msg_user_id != user_id {
+                    return Err(anyhow!("Connect 메시지의 사용자 ID 불일치"));
+                }
+                Ok(())
+            }
+            GameMessage::RoomLeave { user_id: msg_user_id, room_id: _ } => {
+                if *msg_user_id != user_id {
+                    return Err(anyhow!("사용자 ID 불일치"));
+                }
+                Ok(())
+            }
+            // 서버 전용 메시지들 (클라이언트가 보내면 안 됨)
+            GameMessage::RoomJoinSuccess { .. } => {
+                Err(anyhow!("클라이언트는 RoomJoinSuccess 메시지를 보낼 수 없습니다"))
+            }
+            GameMessage::RoomLeaveSuccess { .. } => {
+                Err(anyhow!("클라이언트는 RoomLeaveSuccess 메시지를 보낼 수 없습니다"))
+            }
+            GameMessage::UserJoinedRoom { .. } => {
+                Err(anyhow!("클라이언트는 UserJoinedRoom 메시지를 보낼 수 없습니다"))
+            }
+            GameMessage::UserLeftRoom { .. } => {
+                Err(anyhow!("클라이언트는 UserLeftRoom 메시지를 보낼 수 없습니다"))
+            }
+            GameMessage::ChatResponse { .. } => {
+                Err(anyhow!("클라이언트는 ChatResponse 메시지를 보낼 수 없습니다"))
+            }
+            GameMessage::UserInfo { user_id: msg_user_id, .. } => {
+                if *msg_user_id != user_id {
+                    return Err(anyhow!("사용자 ID 불일치"));
+                }
+                Ok(())
+            }
+            GameMessage::SystemMessage { .. } => {
+                Err(anyhow!("클라이언트는 SystemMessage를 보낼 수 없습니다"))
             }
         }
     }
@@ -407,8 +445,7 @@ mod tests {
         let chat_msg = GameMessage::ChatMessage {
             user_id: 1,
             room_id: 1,
-            content: "안녕하세요!".to_string(),
-            timestamp: chrono::Utc::now().timestamp(),
+            message: "안녕하세요!".to_string(),
         };
         assert!(handler.validate_message(1, &chat_msg).is_ok());
     }

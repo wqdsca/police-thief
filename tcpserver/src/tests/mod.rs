@@ -1,38 +1,21 @@
-//! TCP 서버 테스트 모듈
-//! 
-//! 각 기능별로 분리된 테스트 파일들을 관리합니다.
+//\! TCP 서버 테스트 모듈
+//\! 
+//\! 방 기반 연결 관리 시스템의 모든 기능을 테스트합니다.
 
-pub mod test_protocol;
-pub mod test_connection;
-pub mod test_heartbeat;
-pub mod test_service;
-pub mod test_handler;
-pub mod test_tools;
-pub mod all_test;
-pub mod integration_test;
+/// TCP 연결 관리 종합 테스트
+/// 
+/// DashMap 기반 방 연결 관리, Redis 백업, 실시간 메시징,
+/// 동시성, 성능 등의 모든 기능을 종합적으로 테스트합니다.
+pub mod tcp_connect_test;
 
-// 테스트 유틸리티
-use std::sync::Arc;
-use tokio::net::{TcpListener, TcpStream};
-use crate::service::{ConnectionService, HeartbeatService};
+/// 채팅방 통합 기능 테스트
+/// 
+/// 방 입장/퇴장, 채팅 메시지, 빈 방 정리 등의 핵심 기능 테스트
+pub mod chat_room_integration_test;
 
-/// 테스트용 TCP 서버 생성
-pub async fn create_test_server() -> std::io::Result<TcpListener> {
-    TcpListener::bind("127.0.0.1:0").await
-}
+/// 채팅방 성능 테스트
+/// 
+/// VCPU 2개, RAM 2GB 환경에서 방 50개, 사용자 300명 성능 테스트
+pub mod chat_room_performance_test;
 
-/// 테스트용 클라이언트 연결 생성
-pub async fn create_test_client(addr: &str) -> std::io::Result<TcpStream> {
-    TcpStream::connect(addr).await
-}
-
-/// 테스트용 연결 서비스 생성
-pub fn create_test_connection_service() -> Arc<ConnectionService> {
-    Arc::new(ConnectionService::new(100))
-}
-
-/// 테스트용 하트비트 서비스 생성
-pub fn create_test_heartbeat_service() -> HeartbeatService {
-    let connection_service = create_test_connection_service();
-    HeartbeatService::with_default_config(connection_service)
-}
+pub use tcp_connect_test::*;

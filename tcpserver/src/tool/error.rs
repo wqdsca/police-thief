@@ -4,7 +4,7 @@
 
 use std::fmt;
 use std::error::Error as StdError;
-use anyhow::{Result, Context};
+use anyhow::Result;
 use tracing::{error, warn, info};
 
 /// TCP 서버 에러 타입

@@ -6,7 +6,7 @@ use anyhow::Result;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::time::{Duration, interval, Instant};
-use tracing::{info, warn, debug, error};
+use tracing::{info, warn, debug};
 
 use crate::service::ConnectionService;
 use crate::tool::{SimpleUtils, error::{TcpServerError, ErrorHandler, ErrorSeverity}};
@@ -54,7 +54,7 @@ impl HeartbeatService {
     
     /// 기본 설정으로 생성
     pub fn with_default_config(connection_service: Arc<ConnectionService>) -> Self {
-        Self::new(connection_service, 10, 30) // 10초 간격, 30초 타임아웃
+        Self::new(connection_service, 600, 1800) // 600초(10분) 간격, 1800초(30분) 타임아웃
     }
     
     /// 하트비트 시스템 시작
