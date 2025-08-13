@@ -1,0 +1,8 @@
+<linker>
+  <assembly fullname="System.IO.Pipelines" preserve="all"/>
+  <assembly fullname="System.Memory" preserve="all"/>
+  <assembly fullname="System.Buffers" preserve="all"/>
+  <assembly fullname="System.Runtime.CompilerServices.Unsafe" preserve="all"/>
+  <assembly fullname="System.Threading.Tasks.Extensions" preserve="all"/>
+  <assembly fullname="Cysharp.Net.Http.YetAnotherHttpHandler" preserve="all"/>
+</linker>

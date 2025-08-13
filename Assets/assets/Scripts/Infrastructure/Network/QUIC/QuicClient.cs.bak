@@ -1,0 +1,442 @@
+using System;
+using System.Collections.Concurrent;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+using UnityEngine;
+using PoliceThief.Core.Config;
+using PoliceThief.Core.Logging;
+using PoliceThief.Infrastructure.Network.Core;
+
+namespace PoliceThief.Infrastructure.Network.QUIC
+{
+    /// <summary>
+    /// Simplified QUIC client implementation for Unity
+    /// Uses HTTP/3 (which runs over QUIC) for transport
+    /// TLS 1.3 is automatically handled by the protocol
+    /// </summary>
+    public class QuicClient : IDisposable
+    {
+        #region Events
+        public event Action OnConnected;
+        public event Action OnDisconnected;
+        public event Action<string> OnError;
+        public event Action<NetworkMessage> OnMessageReceived;
+        #endregion
+        
+        #region Fields
+        private readonly HttpClient _httpClient;
+        private readonly NetworkConfig _config;
+        private string _serverUrl;
+        private ClientConnectionState _connectionState = ClientConnectionState.Disconnected;
+        private CancellationTokenSource _cancellationTokenSource;
+        
+        // Message management
+        private uint _sequenceNumber = 0;
+        private readonly ConcurrentQueue<NetworkMessage> _outgoingMessages = new();
+        
+        // Statistics
+        public NetworkStatsOptimized Statistics { get; } = new NetworkStatsOptimized();
+        
+        // Connection info
+        private string _connectionId;
+        private string _sessionTicket;
+        #endregion
+        
+        #region Constructor
+        
+        public QuicClient(NetworkConfig config)
+        {
+            _config = config ?? throw new ArgumentNullException(nameof(config));
+            
+            // Create HTTP/3 client (QUIC transport)
+            var handler = new SocketsHttpHandler
+            {
+                // Enable HTTP/3
+                // Note: In Unity, this will fallback to HTTP/2 if HTTP/3 is not available
+                ConnectTimeout = TimeSpan.FromSeconds(config.connectTimeoutMs / 1000),
+                PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+                PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
+                EnableMultipleHttp2Connections = true,
+                MaxConnectionsPerServer = 10
+            };
+            
+            _httpClient = new HttpClient(handler)
+            {
+                // Request HTTP/3
+                DefaultRequestVersion = new Version(3, 0),
+                DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrHigher,
+                Timeout = TimeSpan.FromSeconds(30)
+            };
+            
+            // Add default headers
+            _httpClient.DefaultRequestHeaders.Add("User-Agent", $"PoliceThief/{Application.version}");
+            _httpClient.DefaultRequestHeaders.Add("X-Platform", Application.platform.ToString());
+            _httpClient.DefaultRequestHeaders.Add("X-Device-Id", SystemInfo.deviceUniqueIdentifier);
+        }
+        
+        #endregion
+        
+        #region Connection Management
+        
+        public async Task<bool> ConnectAsync(string serverUrl)
+        {
+            if (_connectionState != ClientConnectionState.Disconnected)
+            {
+                Debug.LogWarning("[QuicClient] Already connected or connecting");
+                return false;
+            }
+            
+            try
+            {
+                _connectionState = ClientConnectionState.Connecting;
+                _serverUrl = serverUrl;
+                _cancellationTokenSource = new CancellationTokenSource();
+                
+                // Try 0-RTT connection if we have a session ticket
+                bool connected = false;
+                if (!string.IsNullOrEmpty(_sessionTicket))
+                {
+                    connected = await TryZeroRttConnection();
+                }
+                
+                // Fall back to 1-RTT connection
+                if (!connected)
+                {
+                    connected = await PerformHandshake();
+                }
+                
+                if (connected)
+                {
+                    _connectionState = ClientConnectionState.Connected;
+                    StartBackgroundTasks();
+                    OnConnected?.Invoke();
+                    Debug.Log($"[QuicClient] Connected to {serverUrl}");
+                    return true;
+                }
+                
+                _connectionState = ClientConnectionState.Error;
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _connectionState = ClientConnectionState.Error;
+                OnError?.Invoke($"Connection failed: {ex.Message}");
+                Debug.LogError($"[QuicClient] Connection failed: {ex}");
+                return false;
+            }
+        }
+        
+        private async Task<bool> TryZeroRttConnection()
+        {
+            try
+            {
+                // Attempt 0-RTT connection with session resumption
+                var request = new HttpRequestMessage(HttpMethod.Post, $"{_serverUrl}/connect")
+                {
+                    Version = new Version(3, 0),
+                    Content = new StringContent(System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        sessionTicket = _sessionTicket,
+                        earlyData = true
+                    }))
+                };
+                
+                request.Headers.Add("Early-Data", "1");
+                
+                var response = await _httpClient.SendAsync(request, _cancellationTokenSource.Token);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    var content = await response.Content.ReadAsStringAsync();
+                    var result = System.Text.Json.JsonSerializer.Deserialize<ConnectionResponse>(content);
+                    _connectionId = result.connectionId;
+                    
+                    Debug.Log("[QuicClient] 0-RTT connection successful");
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[QuicClient] 0-RTT failed, falling back to 1-RTT: {ex.Message}");
+            }
+            
+            return false;
+        }
+        
+        private async Task<bool> PerformHandshake()
+        {
+            try
+            {
+                // Standard 1-RTT connection
+                var request = new HttpRequestMessage(HttpMethod.Post, $"{_serverUrl}/connect")
+                {
+                    Version = new Version(3, 0),
+                    Content = new StringContent(System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        version = Application.version,
+                        platform = Application.platform.ToString()
+                    }))
+                };
+                
+                var response = await _httpClient.SendAsync(request, _cancellationTokenSource.Token);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    var content = await response.Content.ReadAsStringAsync();
+                    var result = System.Text.Json.JsonSerializer.Deserialize<ConnectionResponse>(content);
+                    
+                    _connectionId = result.connectionId;
+                    _sessionTicket = result.sessionTicket;
+                    
+                    // Store session ticket for 0-RTT next time
+                    StoreSessionTicket();
+                    
+                    Debug.Log("[QuicClient] 1-RTT connection successful");
+                    return true;
+                }
+                
+                Debug.LogError($"[QuicClient] Handshake failed: {response.StatusCode}");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[QuicClient] Handshake error: {ex}");
+                return false;
+            }
+        }
+        
+        public async Task DisconnectAsync()
+        {
+            if (_connectionState == ClientConnectionState.Disconnected)
+                return;
+            
+            try
+            {
+                _connectionState = ClientConnectionState.Disconnecting;
+                
+                // Send disconnect message
+                if (!string.IsNullOrEmpty(_connectionId))
+                {
+                    var request = new HttpRequestMessage(HttpMethod.Post, $"{_serverUrl}/disconnect")
+                    {
+                        Version = new Version(3, 0),
+                        Content = new StringContent(_connectionId)
+                    };
+                    
+                    await _httpClient.SendAsync(request);
+                }
+                
+                _cancellationTokenSource?.Cancel();
+                _connectionState = ClientConnectionState.Disconnected;
+                OnDisconnected?.Invoke();
+                
+                Debug.Log("[QuicClient] Disconnected");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[QuicClient] Disconnect error: {ex}");
+            }
+        }
+        
+        #endregion
+        
+        #region Message Handling
+        
+        public async Task<bool> SendAsync(NetworkMessage message)
+        {
+            if (_connectionState != ClientConnectionState.Connected)
+                return false;
+            
+            try
+            {
+                message.sequenceNumber = Interlocked.Increment(ref _sequenceNumber);
+                
+                // Serialize message
+                var json = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    connectionId = _connectionId,
+                    messageId = message.messageId,
+                    messageType = message.messageType.ToString(),
+                    sequenceNumber = message.sequenceNumber,
+                    payload = message.payload != null ? Convert.ToBase64String(message.payload) : null
+                });
+                
+                // Send via HTTP/3 (QUIC)
+                var request = new HttpRequestMessage(HttpMethod.Post, $"{_serverUrl}/message")
+                {
+                    Version = new Version(3, 0),
+                    Content = new StringContent(json)
+                };
+                
+                var response = await _httpClient.SendAsync(request, _cancellationTokenSource.Token);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    Statistics.IncrementSent();
+                    return true;
+                }
+                
+                Debug.LogWarning($"[QuicClient] Send failed: {response.StatusCode}");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                OnError?.Invoke($"Send failed: {ex.Message}");
+                return false;
+            }
+        }
+        
+        public void Send(NetworkMessage message)
+        {
+            _ = SendAsync(message);
+        }
+        
+        #endregion
+        
+        #region Background Tasks
+        
+        private void StartBackgroundTasks()
+        {
+            // Start receive loop
+            _ = Task.Run(ReceiveLoop, _cancellationTokenSource.Token);
+            
+            // Start keep-alive
+            _ = Task.Run(KeepAliveLoop, _cancellationTokenSource.Token);
+        }
+        
+        private async Task ReceiveLoop()
+        {
+            while (!_cancellationTokenSource.Token.IsCancellationRequested)
+            {
+                try
+                {
+                    // Use Server-Sent Events for real-time messages
+                    var request = new HttpRequestMessage(HttpMethod.Get, $"{_serverUrl}/stream/{_connectionId}")
+                    {
+                        Version = new Version(3, 0)
+                    };
+                    
+                    using var response = await _httpClient.SendAsync(request, 
+                        HttpCompletionOption.ResponseHeadersRead, 
+                        _cancellationTokenSource.Token);
+                    
+                    using var stream = await response.Content.ReadAsStreamAsync();
+                    using var reader = new System.IO.StreamReader(stream);
+                    
+                    while (!_cancellationTokenSource.Token.IsCancellationRequested)
+                    {
+                        var line = await reader.ReadLineAsync();
+                        if (!string.IsNullOrEmpty(line) && line.StartsWith("data: "))
+                        {
+                            ProcessMessage(line.Substring(6));
+                        }
+                    }
+                }
+                catch (Exception ex) when (!_cancellationTokenSource.Token.IsCancellationRequested)
+                {
+                    OnError?.Invoke($"Receive error: {ex.Message}");
+                    await Task.Delay(1000); // Retry delay
+                }
+            }
+        }
+        
+        private async Task KeepAliveLoop()
+        {
+            while (!_cancellationTokenSource.Token.IsCancellationRequested)
+            {
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(30), _cancellationTokenSource.Token);
+                    
+                    var message = new NetworkMessage
+                    {
+                        messageType = MessageType.Heartbeat,
+                        payload = BitConverter.GetBytes(DateTime.UtcNow.Ticks)
+                    };
+                    
+                    await SendAsync(message);
+                }
+                catch (TaskCanceledException)
+                {
+                    break;
+                }
+            }
+        }
+        
+        private void ProcessMessage(string json)
+        {
+            try
+            {
+                var data = System.Text.Json.JsonSerializer.Deserialize<MessageData>(json);
+                
+                var message = new NetworkMessage
+                {
+                    messageId = data.messageId,
+                    messageType = Enum.Parse<MessageType>(data.messageType),
+                    sequenceNumber = data.sequenceNumber,
+                    timestamp = new DateTime(data.timestamp),
+                    payload = !string.IsNullOrEmpty(data.payload) ? 
+                        Convert.FromBase64String(data.payload) : null
+                };
+                
+                Statistics.IncrementReceived();
+                OnMessageReceived?.Invoke(message);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[QuicClient] Failed to process message: {ex}");
+            }
+        }
+        
+        #endregion
+        
+        #region Helper Methods
+        
+        private void StoreSessionTicket()
+        {
+            if (!string.IsNullOrEmpty(_sessionTicket))
+            {
+                PlayerPrefs.SetString($"QUIC_SessionTicket_{_serverUrl}", _sessionTicket);
+                PlayerPrefs.Save();
+            }
+        }
+        
+        private void LoadSessionTicket()
+        {
+            _sessionTicket = PlayerPrefs.GetString($"QUIC_SessionTicket_{_serverUrl}", "");
+        }
+        
+        #endregion
+        
+        #region IDisposable
+        
+        public void Dispose()
+        {
+            DisconnectAsync().Wait(5000);
+            _cancellationTokenSource?.Dispose();
+            _httpClient?.Dispose();
+        }
+        
+        #endregion
+        
+        #region Inner Types
+        
+        private class ConnectionResponse
+        {
+            public string connectionId { get; set; }
+            public string sessionTicket { get; set; }
+        }
+        
+        private class MessageData
+        {
+            public uint messageId { get; set; }
+            public string messageType { get; set; }
+            public uint sequenceNumber { get; set; }
+            public long timestamp { get; set; }
+            public string payload { get; set; }
+        }
+        
+        #endregion
+    }
+}

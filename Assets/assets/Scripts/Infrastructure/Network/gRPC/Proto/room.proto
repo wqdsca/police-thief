@@ -1,0 +1,124 @@
+syntax = "proto3";
+
+package policeThief;
+
+// 방 서비스
+service RoomService {
+    // 방 생성
+    rpc CreateRoom (CreateRoomRequest) returns (CreateRoomResponse);
+    
+    // 방 참가
+    rpc JoinRoom (JoinRoomRequest) returns (JoinRoomResponse);
+    
+    // 방 나가기
+    rpc LeaveRoom (LeaveRoomRequest) returns (LeaveRoomResponse);
+    
+    // 방 목록 조회
+    rpc GetRoomList (GetRoomListRequest) returns (GetRoomListResponse);
+    
+    // 방 정보 조회
+    rpc GetRoomInfo (GetRoomInfoRequest) returns (GetRoomInfoResponse);
+}
+
+// 방 생성 요청
+message CreateRoomRequest {
+    string creator_id = 1;
+    string room_name = 2;
+    int32 max_players = 3;
+    string password = 4;  // 빈 문자열이면 공개방
+}
+
+// 방 생성 응답
+message CreateRoomResponse {
+    bool success = 1;
+    string message = 2;
+    RoomInfo room_info = 3;
+}
+
+// 방 참가 요청
+message JoinRoomRequest {
+    string user_id = 1;
+    string room_id = 2;
+    string password = 3;
+}
+
+// 방 참가 응답
+message JoinRoomResponse {
+    bool success = 1;
+    string message = 2;
+    RoomInfo room_info = 3;
+}
+
+// 방 나가기 요청
+message LeaveRoomRequest {
+    string user_id = 1;
+    string room_id = 2;
+}
+
+// 방 나가기 응답
+message LeaveRoomResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+// 방 목록 조회 요청
+message GetRoomListRequest {
+    int32 page = 1;
+    int32 page_size = 2;
+    bool include_full = 3;  // 가득 찬 방도 포함할지
+}
+
+// 방 목록 조회 응답
+message GetRoomListResponse {
+    bool success = 1;
+    string message = 2;
+    repeated RoomInfo rooms = 3;
+    int32 total_count = 4;
+}
+
+// 방 정보 조회 요청
+message GetRoomInfoRequest {
+    string room_id = 1;
+}
+
+// 방 정보 조회 응답
+message GetRoomInfoResponse {
+    bool success = 1;
+    string message = 2;
+    RoomInfo room_info = 3;
+}
+
+// 방 정보
+message RoomInfo {
+    string room_id = 1;
+    string room_name = 2;
+    string creator_id = 3;
+    int32 current_players = 4;
+    int32 max_players = 5;
+    bool is_private = 6;
+    RoomState state = 7;
+    repeated PlayerInfo players = 8;
+    int64 created_at = 9;
+}
+
+// 플레이어 정보
+message PlayerInfo {
+    string user_id = 1;
+    string nickname = 2;
+    bool is_ready = 3;
+    PlayerRole role = 4;
+}
+
+// 방 상태
+enum RoomState {
+    WAITING = 0;    // 대기 중
+    PLAYING = 1;    // 게임 중
+    FINISHED = 2;   // 게임 종료
+}
+
+// 플레이어 역할
+enum PlayerRole {
+    NONE = 0;
+    POLICE = 1;
+    THIEF = 2;
+}

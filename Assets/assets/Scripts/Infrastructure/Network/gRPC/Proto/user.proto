@@ -1,0 +1,87 @@
+syntax = "proto3";
+
+package policeThief;
+
+// 사용자 서비스 - 인증 관련
+service UserService {
+    // 로그인
+    rpc Login (LoginRequest) returns (LoginResponse);
+    
+    // 로그아웃
+    rpc Logout (LogoutRequest) returns (LogoutResponse);
+    
+    // 토큰 갱신
+    rpc RefreshToken (RefreshTokenRequest) returns (RefreshTokenResponse);
+    
+    // 사용자 정보 조회
+    rpc GetUserInfo (GetUserInfoRequest) returns (GetUserInfoResponse);
+}
+
+// 로그인 타입
+enum LoginType {
+    GUEST = 0;
+    GOOGLE = 1;
+    APPLE = 2;
+}
+
+// 로그인 요청
+message LoginRequest {
+    LoginType login_type = 1;
+    string credential = 2;  // 게스트의 경우 닉네임, 소셜의 경우 토큰
+}
+
+// 로그인 응답
+message LoginResponse {
+    bool success = 1;
+    string message = 2;
+    string user_id = 3;
+    string access_token = 4;
+    string refresh_token = 5;
+    UserInfo user_info = 6;
+}
+
+// 로그아웃 요청
+message LogoutRequest {
+    string user_id = 1;
+}
+
+// 로그아웃 응답
+message LogoutResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+// 토큰 갱신 요청
+message RefreshTokenRequest {
+    string refresh_token = 1;
+}
+
+// 토큰 갱신 응답
+message RefreshTokenResponse {
+    bool success = 1;
+    string message = 2;
+    string access_token = 3;
+    string refresh_token = 4;
+}
+
+// 사용자 정보 조회 요청
+message GetUserInfoRequest {
+    string user_id = 1;
+}
+
+// 사용자 정보 조회 응답
+message GetUserInfoResponse {
+    bool success = 1;
+    string message = 2;
+    UserInfo user_info = 3;
+}
+
+// 사용자 정보
+message UserInfo {
+    string user_id = 1;
+    string nickname = 2;
+    int32 level = 3;
+    int32 experience = 4;
+    int64 created_at = 5;
+    int64 last_login = 6;
+}
