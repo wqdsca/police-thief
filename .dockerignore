@@ -1,0 +1,51 @@
+# Build artifacts
+/target/
+**/target/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+**/*.rs.bk
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*~
+.#*
+*.swp
+*.swo
+
+# Environment files
+.env.local
+.env.production
+.env.test
+
+# Documentation
+README.md
+*.md
+!CLAUDE.md
+
+# Test data
+dump.rdb
+*.rdb
+*.csv
+benchmark_results/
+
+# Development scripts
+scripts/
+how_to_use/
+
+# Windows specific
+nul
+$null

@@ -1,0 +1,111 @@
+# Police Thief Game Server - Development Environment
+# Multi-stage Docker build for cross-platform development
+
+# Stage 1: Base development environment
+FROM ubuntu:22.04 as dev-base
+
+# Avoid interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+ENV RUSTUP_HOME=/usr/local/rustup
+ENV CARGO_HOME=/usr/local/cargo
+ENV PATH=/usr/local/cargo/bin:$PATH
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    # Build essentials
+    build-essential \
+    pkg-config \
+    cmake \
+    nasm \
+    git \
+    curl \
+    # Protocol Buffers
+    protobuf-compiler \
+    libprotobuf-dev \
+    # SSL/TLS support
+    libssl-dev \
+    ca-certificates \
+    # Database support
+    default-mysql-client \
+    redis-tools \
+    # Development tools
+    vim \
+    htop \
+    tree \
+    jq \
+    # Cleanup
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
+    --default-toolchain stable \
+    --profile default \
+    && chmod -R a+w $RUSTUP_HOME $CARGO_HOME
+
+# Install additional Cargo tools
+RUN cargo install \
+    cargo-audit \
+    cargo-watch \
+    cargo-edit \
+    cargo-outdated
+
+# Stage 2: Development environment with services
+FROM dev-base as dev-full
+
+# Install and configure Redis
+RUN apt-get update && apt-get install -y redis-server \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install and configure MySQL
+RUN apt-get update && apt-get install -y \
+    mysql-server \
+    && rm -rf /var/lib/apt/lists/*
+
+# Configure Redis
+RUN sed -i 's/^supervised no/supervised systemd/' /etc/redis/redis.conf \
+    && sed -i 's/^bind 127.0.0.1/bind 0.0.0.0/' /etc/redis/redis.conf
+
+# Create database initialization script
+RUN mkdir -p /docker-entrypoint-initdb.d
+COPY setup_database.sh /docker-entrypoint-initdb.d/
+
+# Stage 3: Production build environment
+FROM dev-base as builder
+
+WORKDIR /app
+COPY . .
+
+# Build the application
+RUN cargo build --release
+
+# Stage 4: Runtime environment
+FROM ubuntu:22.04 as runtime
+
+# Install runtime dependencies only
+RUN apt-get update && apt-get install -y \
+    libssl3 \
+    ca-certificates \
+    redis-server \
+    mysql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy built application
+COPY --from=builder /app/target/release/gamecenter /usr/local/bin/
+COPY --from=builder /app/property /app/property
+
+# Create non-root user
+RUN useradd -m -u 1000 gameserver && \
+    chown -R gameserver:gameserver /app
+
+USER gameserver
+WORKDIR /app
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+# Expose ports
+EXPOSE 50051 4000 8080
+
+# Default command
+CMD ["gamecenter", "start"]

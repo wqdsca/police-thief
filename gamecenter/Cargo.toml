@@ -1,0 +1,70 @@
+[package]
+name = "gamecenter"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Shared library
+shared = { path = "../shared" }
+
+# Server components
+grpcserver = { path = "../grpcserver" }
+tcpserver = { path = "../tcpserver" }
+quicserver = { path = "../quicserver", optional = true }
+
+# Workspace dependencies
+redis.workspace = true
+tokio.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+rand.workspace = true
+dotenv.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tonic.workspace = true
+chrono.workspace = true
+
+# Additional dependencies for server integration
+futures = "0.3"
+tokio-util = "0.7"
+thiserror = "2.0"
+
+# Database
+sqlx = { version = "0.7", features = ["mysql", "runtime-tokio-native-tls", "chrono", "uuid"] }
+
+# gRPC (additional to workspace tonic)
+prost = "0.12"
+
+# Admin API dependencies
+actix-web = "4.4"
+actix-cors = "0.6"
+actix = "0.13"
+actix-web-actors = "4.2"
+sysinfo = "0.30"
+uuid = { version = "1.6", features = ["v4", "serde"] }
+jsonwebtoken = "9.3"
+sha2 = "0.10"
+
+# OAuth 2.0 and Social Login dependencies
+reqwest = { version = "0.11", features = ["json", "rustls-tls"] }
+oauth2 = "4.4"
+base64 = "0.21"
+hex = "0.4"
+ring = "0.17"  # For Apple Sign In JWT
+percent-encoding = "2.3"
+
+# Security dependencies
+bcrypt = "0.15"  # For password hashing
+
+# System utilities
+num_cpus = "1.16"
+
+[build-dependencies]
+tonic-build = "0.10"
+
+[dev-dependencies]
+tokio-test.workspace = true
+[features]
+default = ["quic"]
+quic = ["dep:quicserver"]

@@ -1,0 +1,147 @@
+syntax = "proto3";
+
+package auth;
+
+// 인증 서비스
+service AuthService {
+  // 로그인 (Access Token + Refresh Token 발급)
+  rpc Login(LoginRequest) returns (LoginResponse);
+  
+  // Refresh Token으로 새 Access Token 발급
+  rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
+  
+  // 토큰 검증
+  rpc VerifyToken(VerifyTokenRequest) returns (VerifyTokenResponse);
+  
+  // 로그아웃 (토큰 무효화)
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
+  
+  // 사용자의 모든 세션 조회
+  rpc GetUserSessions(GetUserSessionsRequest) returns (GetUserSessionsResponse);
+  
+  // 특정 세션 무효화
+  rpc RevokeSession(RevokeSessionRequest) returns (RevokeSessionResponse);
+}
+
+// === 로그인 관련 ===
+
+message LoginRequest {
+  string username = 1;
+  string password = 2;
+  optional ClientInfo client_info = 3;
+}
+
+message LoginResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+  string token_type = 3;  // "Bearer"
+  int64 access_expires_at = 4;  // Unix timestamp
+  int64 refresh_expires_at = 5; // Unix timestamp
+  UserInfo user_info = 6;
+}
+
+// === Refresh Token 관련 ===
+
+message RefreshTokenRequest {
+  string refresh_token = 1;
+  optional ClientInfo client_info = 2;
+}
+
+message RefreshTokenResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+  string token_type = 3;
+  int64 access_expires_at = 4;
+  int64 refresh_expires_at = 5;
+}
+
+// === 토큰 검증 ===
+
+message VerifyTokenRequest {
+  string access_token = 1;
+}
+
+message VerifyTokenResponse {
+  bool valid = 1;
+  optional UserInfo user_info = 2;
+  optional string error_message = 3;
+  int64 expires_at = 4;
+}
+
+// === 로그아웃 ===
+
+message LogoutRequest {
+  string access_token = 1;
+}
+
+message LogoutResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// === 세션 관리 ===
+
+message GetUserSessionsRequest {
+  string access_token = 1;
+}
+
+message GetUserSessionsResponse {
+  repeated SessionInfo sessions = 1;
+}
+
+message RevokeSessionRequest {
+  string access_token = 1;
+  uint64 session_token_id = 2;
+}
+
+message RevokeSessionResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// === 공통 데이터 구조 ===
+
+message UserInfo {
+  string user_id = 1;
+  string username = 2;
+  string nickname = 3;
+  string role = 4;
+  optional int32 level = 5;
+  optional int32 total_games = 6;
+  optional int32 win_count = 7;
+  optional int32 lose_count = 8;
+  optional float win_rate = 9;
+  int64 last_login_at = 10;
+}
+
+message ClientInfo {
+  optional string device_type = 1;    // "mobile", "desktop", "web"
+  optional string device_id = 2;      // 디바이스 고유 ID
+  optional string app_version = 3;    // 앱 버전
+  optional string platform = 4;       // "iOS", "Android", "Windows", "MacOS"
+  optional string ip_address = 5;     // 클라이언트 IP
+  optional string user_agent = 6;     // User Agent
+}
+
+message SessionInfo {
+  uint64 token_id = 1;
+  optional ClientInfo client_info = 2;
+  int64 created_at = 3;
+  int64 expires_at = 4;
+  bool is_current = 5;  // 현재 요청한 토큰인지 여부
+}
+
+// === 에러 코드 ===
+
+enum AuthErrorCode {
+  AUTH_SUCCESS = 0;
+  INVALID_CREDENTIALS = 1;
+  EXPIRED_TOKEN = 2;
+  INVALID_TOKEN = 3;
+  TOKEN_NOT_FOUND = 4;
+  USER_NOT_FOUND = 5;
+  USER_BANNED = 6;
+  INTERNAL_ERROR = 7;
+  INVALID_REFRESH_TOKEN = 8;
+  SESSION_NOT_FOUND = 9;
+}

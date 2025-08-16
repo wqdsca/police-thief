@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package user;
+
+// 유저 관련 서비스 정의
+service UserService {
+  rpc LoginUser(LoginRequest) returns (LoginResponse);
+  rpc RegisterUser(RegisterRequest) returns (RegisterResponse); // ← 수정
+}
+
+// 로그인 요청
+message LoginRequest {
+  string login_type = 1;
+  string login_token = 2;
+}
+
+// 로그인 응답
+message LoginResponse {
+  int32 success = 1;
+  int32 user_id = 2; // ← int → int32
+  string nick_name = 3;
+  string access_token = 4;
+  string refresh_token = 5;
+  bool is_register = 6;
+}
+
+// 회원가입 요청
+message RegisterRequest {
+  string login_type = 1;
+  string login_token = 2;
+  string nick_name = 3;
+}
+
+// 회원가입 응답
+message RegisterResponse {
+  int32 success = 1;
+}

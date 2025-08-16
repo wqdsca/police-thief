@@ -1,0 +1,187 @@
+# Police Thief Game Server - Development Environment
+# Complete development stack with all services
+
+version: '3.8'
+
+services:
+  # Redis service
+  redis:
+    image: redis:7-alpine
+    container_name: police-thief-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # MySQL service  
+  mysql:
+    image: mysql:8.0
+    container_name: police-thief-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password_123
+      MYSQL_DATABASE: police_thief_simple
+      MYSQL_USER: game_simple
+      MYSQL_PASSWORD: game_password_123
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./sql:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Development environment
+  gameserver-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: dev-full
+    container_name: police-thief-dev
+    environment:
+      # Database configuration
+      DATABASE_URL: mysql://game_simple:game_password_123@mysql:3306/police_thief_simple
+      
+      # Redis configuration
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      
+      # Server configuration
+      GRPC_HOST: 0.0.0.0
+      GRPC_PORT: 50051
+      TCP_HOST: 0.0.0.0
+      TCP_PORT: 4000
+      ADMIN_HOST: 0.0.0.0
+      ADMIN_PORT: 8080
+      
+      # JWT configuration
+      JWT_SECRET_KEY: development_jwt_secret_key_256_bits_minimum_length_required_for_security
+      JWT_EXPIRATION_HOURS: 24
+      JWT_REFRESH_EXPIRATION_DAYS: 7
+      
+      # Feature flags
+      ENABLE_GRPC: true
+      ENABLE_TCP: true
+      ENABLE_MONITORING: true
+      
+      # Development settings
+      RUST_LOG: debug
+      RUST_BACKTRACE: 1
+    ports:
+      - "50051:50051"  # gRPC server
+      - "4000:4000"    # TCP server
+      - "8080:8080"    # Admin API
+    volumes:
+      - .:/workspace
+      - cargo_cache:/usr/local/cargo/registry
+      - target_cache:/workspace/target
+    working_dir: /workspace
+    command: |
+      bash -c "
+        echo '🚀 Starting Police Thief Development Environment...'
+        echo '📦 Installing dependencies...'
+        cargo fetch
+        echo '🔧 Building project...'
+        cargo build
+        echo '✅ Ready for development!'
+        echo '💡 Available commands:'
+        echo '   cargo run -p gamecenter start  # Start all servers'
+        echo '   cargo run -p gamecenter grpc   # Start gRPC server only'
+        echo '   cargo run -p gamecenter tcp    # Start TCP server only'
+        echo '   cargo test                     # Run tests'
+        echo '   cargo clippy                   # Run linter'
+        echo ''
+        echo '🌐 Services:'
+        echo '   gRPC API: http://localhost:50051'
+        echo '   TCP Game: tcp://localhost:4000'
+        echo '   Admin API: http://localhost:8080'
+        echo '   Redis: redis://localhost:6379'
+        echo '   MySQL: mysql://localhost:3306'
+        echo ''
+        echo '📚 Documentation: http://localhost:8080/docs'
+        echo ''
+        bash
+      "
+    depends_on:
+      redis:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+
+  # Monitoring services
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: police-thief-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: police-thief-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin123
+    volumes:
+      - grafana_data:/var/lib/grafana
+    restart: unless-stopped
+
+  # Load testing service
+  load-tester:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: dev-base
+    container_name: police-thief-load-tester
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    command: |
+      bash -c "
+        echo '⚡ Load Testing Environment Ready'
+        echo '🎯 Available test commands:'
+        echo '   python tcp_load_test.py              # TCP server load test'
+        echo '   cargo run --bin test_client          # gRPC client test'
+        echo '   ./tcpserver/test_runner.sh all       # Comprehensive tests'
+        echo ''
+        sleep infinity
+      "
+    depends_on:
+      - gameserver-dev
+    profiles:
+      - testing
+
+volumes:
+  redis_data:
+  mysql_data:
+  prometheus_data:
+  grafana_data:
+  cargo_cache:
+  target_cache:
+
+networks:
+  default:
+    name: police-thief-network

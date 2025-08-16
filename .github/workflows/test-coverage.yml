@@ -1,0 +1,62 @@
+name: Test Coverage
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+        components: llvm-tools-preview
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y protobuf-compiler redis-server
+        cargo install cargo-tarpaulin
+    
+    - name: Start Redis
+      run: redis-server --daemonize yes
+    
+    - name: Run tests with coverage
+      run: |
+        cargo tarpaulin --verbose --all-features --workspace --timeout 120 --out Xml
+      env:
+        RUST_BACKTRACE: 1
+        redis_host: 127.0.0.1
+        redis_port: 6379
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./cobertura.xml
+        fail_ci_if_error: true
+    
+    - name: Generate coverage report
+      run: |
+        cargo tarpaulin --verbose --all-features --workspace --timeout 120 --out Html
+        
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v3
+      with:
+        name: coverage-report
+        path: tarpaulin-report.html
+    
+    - name: Coverage Summary
+      run: |
+        echo "## Coverage Summary" >> $GITHUB_STEP_SUMMARY
+        cargo tarpaulin --print-summary --all-features --workspace

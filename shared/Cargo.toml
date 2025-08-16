@@ -1,0 +1,58 @@
+[package]
+name = "shared"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+redis.workspace = true
+tokio.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+rand.workspace = true
+dotenv.workspace = true
+tracing.workspace = true 
+jsonwebtoken.workspace = true
+tonic.workspace = true
+chrono.workspace = true
+flate2.workspace = true
+crc32fast.workspace = true
+thiserror.workspace = true
+sqlx.workspace = true
+dashmap.workspace = true
+rayon.workspace = true
+crossbeam-queue.workspace = true
+num_cpus = "1.0"
+bytes.workspace = true
+lru = "0.12"
+parking_lot = "0.12"
+socket2 = "0.5"
+
+# 로깅 시스템 의존성
+tracing-subscriber.workspace = true
+
+# 보안 관련 의존성
+bcrypt = "0.15"
+regex = "1.10"
+hex = "0.4"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+sha2 = "0.10"
+base64 = "0.21"
+# Simple crypto dependencies that work on Windows
+pbkdf2 = "0.12"
+chacha20poly1305 = "0.10"
+lazy_static.workspace = true
+url = "2.5"
+prometheus.workspace = true
+async-trait.workspace = true
+
+[[bin]]
+name = "run_security_audit"
+path = "src/bin/run_security_audit.rs"
+
+[dev-dependencies]
+tokio-test.workspace = true
+tempfile = "3.0"
+
+[features]
+default = []

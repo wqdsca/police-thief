@@ -1,0 +1,8 @@
+# Rustdoc configuration for comprehensive API documentation
+
+[build]
+rustdocflags = ["--html-in-header", "docs/header.html"]
+
+[doc]
+all-features = true
+no-deps = false

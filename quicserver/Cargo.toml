@@ -1,0 +1,71 @@
+[package]
+name = "quicserver"
+version = "0.1.0"
+edition = "2021"
+authors = ["Police Thief Game Team"]
+description = "High-performance QUIC game server with stream multiplexing"
+
+[dependencies]
+# Workspace common dependencies
+tokio = { workspace = true, features = ["full"] }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+dotenv = { workspace = true }
+async-trait = { workspace = true }
+dashmap = { workspace = true }
+rayon = { workspace = true }
+parking_lot = { workspace = true }
+bytes = { workspace = true }
+once_cell = { workspace = true }
+
+# QUIC specific dependencies
+quinn = { version = "0.11", default-features = false, features = ["rustls", "ring"] }
+rustls = { version = "0.23", features = ["ring"], default-features = false }
+rustls-pemfile = "2.0"
+rcgen = "0.13"
+ring = "0.17"
+
+# Performance optimization
+lz4 = "1.24"
+zstd = "0.13"
+bincode = "1.3"
+
+# Monitoring
+prometheus = { workspace = true }
+lazy_static = { workspace = true }
+
+# Shared libraries
+shared = { path = "../shared" }
+
+# Additional utilities
+uuid = { version = "1.6", features = ["v4", "serde"] }
+rand = { workspace = true }
+futures = "0.3"
+num_cpus = "1.16"
+crc32fast = "1.3"
+
+# Library target 추가
+[lib]
+name = "quicserver"
+path = "src/lib.rs"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports", "async_tokio"] }
+proptest = "1.4"
+tokio-test = { workspace = true }
+tempfile = "3.8"
+
+[[bin]]
+name = "quicserver"
+path = "src/main.rs"
+
+# Benchmarks will be added later
+# [[bench]]
+# name = "quic_benchmarks"
+# harness = false
+

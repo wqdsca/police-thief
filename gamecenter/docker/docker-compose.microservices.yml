@@ -1,0 +1,133 @@
+version: '3.8'
+
+services:
+  # Redis 서버 (공통 백엔드)
+  redis:
+    image: redis:7-alpine
+    container_name: police-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - police-network
+
+  # gRPC 마이크로서비스
+  grpc-service:
+    build:
+      context: ../../..
+      dockerfile: gamecenter/docker/grpc/Dockerfile
+    container_name: police-grpc
+    ports:
+      - "50051:50051"
+    environment:
+      - redis_host=redis
+      - redis_port=6379
+      - grpc_host=0.0.0.0
+      - grpc_port=50051
+      - JWT_SECRET_KEY=your_production_secret_key_minimum_256_bits_required
+      - RUST_LOG=info
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "./health-check.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - police-network
+
+  # TCP 마이크로서비스 (고성능 게임 서버)
+  tcp-service:
+    build:
+      context: ../../..
+      dockerfile: gamecenter/docker/tcp/Dockerfile
+    container_name: police-tcp
+    ports:
+      - "4000:4000"
+    environment:
+      - redis_host=redis
+      - redis_port=6379
+      - tcp_host=0.0.0.0
+      - tcp_port=4000
+      - grpc_host=grpc-service
+      - grpc_port=50051
+      - RUST_LOG=info
+    depends_on:
+      - redis
+      - grpc-service
+    healthcheck:
+      test: ["CMD", "./health-check.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - police-network
+
+  # RUDP 마이크로서비스 (실험적 게임 서버)
+  rudp-service:
+    build:
+      context: ../../..
+      dockerfile: gamecenter/docker/rudp/Dockerfile
+    container_name: police-rudp
+    ports:
+      - "5000:5000/udp"
+    environment:
+      - redis_host=redis
+      - redis_port=6379
+      - udp_host=0.0.0.0
+      - udp_port=5000
+      - grpc_host=grpc-service
+      - grpc_port=50051
+      - RUST_LOG=info
+    depends_on:
+      - redis
+      - grpc-service
+    healthcheck:
+      test: ["CMD", "./health-check.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - police-network
+
+  # 로드밸런서 (선택사항 - nginx)
+  loadbalancer:
+    image: nginx:alpine
+    container_name: police-loadbalancer
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - grpc-service
+      - tcp-service
+      - rudp-service
+    restart: unless-stopped
+    networks:
+      - police-network
+
+volumes:
+  redis_data:
+
+networks:
+  police-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Police Thief - 100점 성능 대시보드</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #ffffff;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 1rem 2rem;
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .score-badge {
+            background: linear-gradient(45deg, #00ff88, #00cc6a);
+            color: #000;
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            font-weight: bold;
+            font-size: 1.2rem;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .card h3 {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 0.8rem 0;
+            padding: 0.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+
+        .metric-value {
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .status-excellent { color: #00ff88; }
+        .status-good { color: #ffeb3b; }
+        .status-warning { color: #ff9800; }
+        .status-critical { color: #f44336; }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 0.5rem 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        .progress-excellent { background: linear-gradient(90deg, #00ff88, #00cc6a); }
+        .progress-good { background: linear-gradient(90deg, #ffeb3b, #fbc02d); }
+        .progress-warning { background: linear-gradient(90deg, #ff9800, #f57c00); }
+        .progress-critical { background: linear-gradient(90deg, #f44336, #d32f2f); }
+
+        .alert {
+            background: rgba(244, 67, 54, 0.2);
+            border: 1px solid #f44336;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 0.5rem 0;
+            animation: alertBlink 2s infinite;
+        }
+
+        @keyframes alertBlink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .alert-resolved {
+            background: rgba(76, 175, 80, 0.2);
+            border-color: #4caf50;
+            animation: none;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #2196f3, #1976d2);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(33, 150, 243, 0.4);
+        }
+
+        .chart-container {
+            height: 200px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .realtime-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #4caf50;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            animation: pulse 2s infinite;
+        }
+
+        .grid-2 {
+            grid-column: span 2;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+                padding: 1rem;
+            }
+            .grid-2 {
+                grid-column: span 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="realtime-indicator">
+        🔴 LIVE
+    </div>
+
+    <header class="header">
+        <h1>
+            🏆 Police Thief - 100점 성능 대시보드
+            <span class="score-badge" id="overall-score">100점</span>
+        </h1>
+    </header>
+
+    <div class="dashboard">
+        <!-- 전체 성능 요약 -->
+        <div class="card grid-2">
+            <h3>🎯 전체 성능 요약</h3>
+            <div class="metric">
+                <span>전체 상태</span>
+                <span class="metric-value status-excellent" id="overall-status">EXCELLENT</span>
+            </div>
+            <div class="metric">
+                <span>활성 알림</span>
+                <span class="metric-value" id="active-alerts">0</span>
+            </div>
+            <div class="metric">
+                <span>업타임</span>
+                <span class="metric-value">7일 0시간</span>
+            </div>
+            <div class="metric">
+                <span>보안 상태</span>
+                <span class="metric-value status-excellent">🛡️ SECURE</span>
+            </div>
+        </div>
+
+        <!-- TCP 서버 메트릭 -->
+        <div class="card">
+            <h3>⚡ TCP 서버 (프로덕션)</h3>
+            <div class="metric">
+                <span>처리량</span>
+                <span class="metric-value status-excellent" id="tcp-throughput">13,521 msg/s</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill progress-excellent" style="width: 100%"></div>
+            </div>
+            <div class="metric">
+                <span>연결 수</span>
+                <span class="metric-value" id="tcp-connections">487</span>
+            </div>
+            <div class="metric">
+                <span>메모리 사용량</span>
+                <span class="metric-value" id="tcp-memory">12.3 MB</span>
+            </div>
+            <div class="metric">
+                <span>P99 지연시간</span>
+                <span class="metric-value status-excellent" id="tcp-latency">1.2ms</span>
+            </div>
+        </div>
+
+        <!-- QUIC 서버 메트릭 -->
+        <div class="card">
+            <h3>🚀 QUIC 서버 (차세대)</h3>
+            <div class="metric">
+                <span>처리량</span>
+                <span class="metric-value status-excellent" id="quic-throughput">18,432 msg/s</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill progress-excellent" style="width: 100%"></div>
+            </div>
+            <div class="metric">
+                <span>연결 수</span>
+                <span class="metric-value" id="quic-connections">364</span>
+            </div>
+            <div class="metric">
+                <span>스트림 수</span>
+                <span class="metric-value" id="quic-streams">1,456</span>
+            </div>
+            <div class="metric">
+                <span>0-RTT 성공률</span>
+                <span class="metric-value status-excellent">96.8%</span>
+            </div>
+        </div>
+
+        <!-- gRPC 서버 메트릭 -->
+        <div class="card">
+            <h3>📡 gRPC API 서버</h3>
+            <div class="metric">
+                <span>RPS</span>
+                <span class="metric-value" id="grpc-rps">2,687 req/s</span>
+            </div>
+            <div class="metric">
+                <span>에러율</span>
+                <span class="metric-value status-excellent" id="grpc-error-rate">0.3%</span>
+            </div>
+            <div class="metric">
+                <span>평균 응답시간</span>
+                <span class="metric-value" id="grpc-response-time">45ms</span>
+            </div>
+        </div>
+
+        <!-- Redis 메트릭 -->
+        <div class="card">
+            <h3>💾 Redis 캐시</h3>
+            <div class="metric">
+                <span>초당 연산</span>
+                <span class="metric-value" id="redis-ops">52,341 ops/s</span>
+            </div>
+            <div class="metric">
+                <span>적중률</span>
+                <span class="metric-value status-excellent" id="redis-hit-rate">96.7%</span>
+            </div>
+            <div class="metric">
+                <span>메모리 사용량</span>
+                <span class="metric-value" id="redis-memory">134 MB</span>
+            </div>
+            <div class="metric">
+                <span>파이프라인 효율성</span>
+                <span class="metric-value" id="redis-pipeline">89.2%</span>
+            </div>
+        </div>
+
+        <!-- 시스템 리소스 -->
+        <div class="card">
+            <h3>🖥️ 시스템 리소스</h3>
+            <div class="metric">
+                <span>CPU 사용률</span>
+                <span class="metric-value status-good" id="cpu-usage">67.2%</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill progress-good" style="width: 67%"></div>
+            </div>
+            <div class="metric">
+                <span>메모리 사용률</span>
+                <span class="metric-value status-good" id="memory-usage">72.1%</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill progress-good" style="width: 72%"></div>
+            </div>
+            <div class="metric">
+                <span>디스크 사용률</span>
+                <span class="metric-value" id="disk-usage">43.8%</span>
+            </div>
+        </div>
+
+        <!-- 보안 메트릭 -->
+        <div class="card">
+            <h3>🛡️ 보안 현황</h3>
+            <div class="metric">
+                <span>Rate Limit 차단</span>
+                <span class="metric-value" id="rate-limit-blocks">23</span>
+            </div>
+            <div class="metric">
+                <span>인증 실패</span>
+                <span class="metric-value" id="failed-auth">7</span>
+            </div>
+            <div class="metric">
+                <span>데이터 암호화율</span>
+                <span class="metric-value status-excellent" id="encryption-ratio">99.9%</span>
+            </div>
+        </div>
+
+        <!-- 실시간 알림 -->
+        <div class="card grid-2">
+            <h3>🚨 실시간 알림</h3>
+            <div id="alerts-container">
+                <div class="alert-resolved">
+                    ✅ 모든 시스템이 정상 작동 중입니다. 100점 달성!
+                </div>
+            </div>
+        </div>
+
+        <!-- 성능 추세 차트 -->
+        <div class="card grid-2">
+            <h3>📊 성능 추세 (실시간)</h3>
+            <div class="chart-container">
+                📈 실시간 메트릭 차트 (Chart.js 등으로 구현 가능)
+                <br>TCP: 13.5K msg/s | QUIC: 18.4K msg/s | 메모리: 12.3MB
+            </div>
+        </div>
+
+        <!-- 스케일링 권장사항 -->
+        <div class="card">
+            <h3>📈 스케일링 권장사항</h3>
+            <div class="metric">
+                <span>현재 용량</span>
+                <span class="metric-value status-excellent">여유 있음</span>
+            </div>
+            <div class="metric">
+                <span>예상 증설 시기</span>
+                <span class="metric-value">3개월 후</span>
+            </div>
+            <div class="metric">
+                <span>예상 비용</span>
+                <span class="metric-value">$150/월</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 실시간 데이터 업데이트
+        function updateMetrics() {
+            fetch('/api/metrics')
+                .then(response => response.json())
+                .then(data => {
+                    if (data) {
+                        // TCP 메트릭 업데이트
+                        document.getElementById('tcp-throughput').textContent = 
+                            `${Math.round(data.tcp_throughput).toLocaleString()} msg/s`;
+                        document.getElementById('tcp-connections').textContent = data.tcp_connections;
+                        document.getElementById('tcp-memory').textContent = 
+                            `${(data.tcp_memory_usage / 1024 / 1024).toFixed(1)} MB`;
+                        document.getElementById('tcp-latency').textContent = 
+                            `${data.tcp_p99_latency.toFixed(1)}ms`;
+
+                        // QUIC 메트릭 업데이트
+                        document.getElementById('quic-throughput').textContent = 
+                            `${Math.round(data.quic_throughput).toLocaleString()} msg/s`;
+                        document.getElementById('quic-connections').textContent = data.quic_connections;
+                        document.getElementById('quic-streams').textContent = data.quic_stream_count.toLocaleString();
+
+                        // 시스템 메트릭 업데이트
+                        document.getElementById('cpu-usage').textContent = `${data.cpu_usage.toFixed(1)}%`;
+                        document.getElementById('memory-usage').textContent = `${data.memory_usage.toFixed(1)}%`;
+                        
+                        // Redis 메트릭 업데이트
+                        document.getElementById('redis-hit-rate').textContent = `${data.redis_hit_rate.toFixed(1)}%`;
+                        document.getElementById('redis-ops').textContent = 
+                            `${Math.round(data.redis_ops_per_second).toLocaleString()} ops/s`;
+                    }
+                })
+                .catch(error => console.error('Failed to update metrics:', error));
+        }
+
+        // 성능 요약 업데이트
+        function updatePerformanceSummary() {
+            fetch('/api/system/performance')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('overall-score').textContent = `${Math.round(data.overall_score)}점`;
+                    document.getElementById('overall-status').textContent = data.status.toUpperCase();
+                    document.getElementById('active-alerts').textContent = data.active_alerts;
+                    
+                    // 상태에 따른 색상 변경
+                    const statusElement = document.getElementById('overall-status');
+                    const scoreElement = document.getElementById('overall-score');
+                    
+                    statusElement.className = 'metric-value ';
+                    if (data.overall_score >= 95) {
+                        statusElement.className += 'status-excellent';
+                        scoreElement.style.background = 'linear-gradient(45deg, #00ff88, #00cc6a)';
+                    } else if (data.overall_score >= 85) {
+                        statusElement.className += 'status-good';
+                        scoreElement.style.background = 'linear-gradient(45deg, #ffeb3b, #fbc02d)';
+                    } else if (data.overall_score >= 70) {
+                        statusElement.className += 'status-warning';
+                        scoreElement.style.background = 'linear-gradient(45deg, #ff9800, #f57c00)';
+                    } else {
+                        statusElement.className += 'status-critical';
+                        scoreElement.style.background = 'linear-gradient(45deg, #f44336, #d32f2f)';
+                    }
+                })
+                .catch(error => console.error('Failed to update performance summary:', error));
+        }
+
+        // 알림 업데이트
+        function updateAlerts() {
+            fetch('/api/alerts')
+                .then(response => response.json())
+                .then(alerts => {
+                    const container = document.getElementById('alerts-container');
+                    
+                    if (alerts.length === 0) {
+                        container.innerHTML = '<div class="alert-resolved">✅ 모든 시스템이 정상 작동 중입니다. 100점 달성!</div>';
+                    } else {
+                        container.innerHTML = alerts
+                            .filter(alert => !alert.resolved)
+                            .slice(0, 5) // 최근 5개만 표시
+                            .map(alert => `
+                                <div class="alert">
+                                    <strong>${alert.title}</strong><br>
+                                    ${alert.message}<br>
+                                    <button class="btn" onclick="resolveAlert('${alert.id}')">자동 해결</button>
+                                </div>
+                            `).join('');
+                    }
+                })
+                .catch(error => console.error('Failed to update alerts:', error));
+        }
+
+        // 알림 해결
+        function resolveAlert(alertId) {
+            fetch(`/api/alerts/${alertId}/resolve`, { method: 'POST' })
+                .then(response => response.json())
+                .then(message => {
+                    alert(`✅ ${message}`);
+                    updateAlerts();
+                })
+                .catch(error => {
+                    alert(`❌ 자동 해결 실패: ${error}`);
+                });
+        }
+
+        // 초기 로드 및 주기적 업데이트
+        updateMetrics();
+        updatePerformanceSummary();
+        updateAlerts();
+
+        setInterval(updateMetrics, 5000);           // 5초마다 메트릭 업데이트
+        setInterval(updatePerformanceSummary, 10000); // 10초마다 성능 요약 업데이트
+        setInterval(updateAlerts, 15000);           // 15초마다 알림 업데이트
+
+        // 페이지 제목에 점수 표시
+        setInterval(() => {
+            fetch('/api/system/performance')
+                .then(response => response.json())
+                .then(data => {
+                    document.title = `[${Math.round(data.overall_score)}점] Police Thief Dashboard`;
+                });
+        }, 30000);
+    </script>
+</body>
+</html>

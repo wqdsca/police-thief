@@ -1,0 +1,112 @@
+version: '3.8'
+
+services:
+  # Redis 서버
+  redis:
+    image: redis:7-alpine
+    container_name: police-redis-unified
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - police-network
+
+  # 통합 gamecenter 서버
+  gamecenter-unified:
+    build:
+      context: ../../..
+      dockerfile: gamecenter/docker/unified/Dockerfile
+    container_name: police-gamecenter
+    ports:
+      - "50051:50051"  # gRPC
+      - "4000:4000"    # TCP
+      - "5001:5001/udp" # QUIC
+      - "8080:8080"    # Admin API
+    environment:
+      # Redis 설정
+      - redis_host=redis
+      - redis_port=6379
+      
+      # 서버 설정
+      - grpc_host=0.0.0.0
+      - grpc_port=50051
+      - tcp_host=0.0.0.0
+      - tcp_port=4000
+      - udp_host=0.0.0.0
+      - udp_port=5001
+      
+      # QUIC 서버 설정
+      - QUIC_HOST=0.0.0.0
+      - QUIC_PORT=5001
+      
+      # 서버 활성화
+      - ENABLE_GRPC=true
+      - ENABLE_TCP=true
+      - ENABLE_QUIC=true
+      - ENABLE_MONITORING=true
+      
+      # 보안 설정
+      - JWT_SECRET_KEY=your_production_secret_key_minimum_256_bits_required
+      
+      # 로깅
+      - RUST_LOG=info
+      - RUST_BACKTRACE=1
+      
+      # 성능 최적화
+      - RUST_MIN_STACK=8388608  # 8MB 스택
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "./health-check.sh"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    # 리소스 제한
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2.0'
+        reservations:
+          memory: 1G
+          cpus: '1.0'
+    networks:
+      - police-network
+
+  # 모니터링 (선택사항)
+  monitoring:
+    image: prom/prometheus:latest
+    container_name: police-monitoring
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    restart: unless-stopped
+    networks:
+      - police-network
+
+volumes:
+  redis_data:
+
+networks:
+  police-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16

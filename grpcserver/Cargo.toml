@@ -1,0 +1,35 @@
+[package]
+name = "grpcserver"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tonic.workspace = true
+prost.workspace = true
+tokio.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+dotenv.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+chrono.workspace = true
+jsonwebtoken.workspace = true
+thiserror.workspace = true
+redis.workspace = true
+async-trait.workspace = true
+num_cpus.workspace = true
+
+# Shared 라이브러리 의존성
+shared = { path = "../shared" }
+
+[build-dependencies]
+tonic-build = "0.10"
+
+[[bin]]
+name = "grpcserver"
+path = "src/main.rs"
+
+[[bin]]
+name = "test_client"
+path = "src/test/test_client.rs"
